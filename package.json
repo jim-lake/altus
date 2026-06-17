@@ -1,0 +1,14 @@
+{
+  "name": "@altus/altus-mono",
+  "private": true,
+  "scripts": {
+    "pretty": "npm run pretty --workspaces"
+  },
+  "workspaces": [
+    "deploy",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "prettier": "^3.8.4"
+  }
+}
