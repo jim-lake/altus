@@ -93,23 +93,18 @@ class XMLHttpRequestShim {
   globalThis as unknown as { XMLHttpRequest: typeof XMLHttpRequestShim }
 ).XMLHttpRequest = XMLHttpRequestShim;
 
-interface AuthServiceInterface {
+interface AuthModule {
   startDeviceCodeAuth: () => Promise<DeviceCodeResponse>;
 }
-interface AuthModule {
-  AuthService: new () => AuthServiceInterface;
-}
 
-let AuthService: AuthModule['AuthService'];
+let auth: AuthModule;
 
 before(async () => {
-  const mod: AuthModule = await import('../../src/lib/auth.ts');
-  AuthService = mod.AuthService;
+  auth = await import('../../src/lib/auth.ts');
 });
 
-void describe('AuthService - startDeviceCodeAuth (live)', () => {
+void describe('auth - startDeviceCodeAuth (live)', () => {
   void it('retrieves a valid device code from Microsoft', async () => {
-    const auth = new AuthService();
     const result = await auth.startDeviceCodeAuth();
 
     console.log('=== Device Code Response ===');
