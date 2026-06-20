@@ -1,0 +1,25 @@
+# Node modules
+node_modules/
+
+# Build outputs
+macos/build/
+ios/build/
+android/build/
+android/app/build/
+
+# Xcode derived data
+ios/DerivedData/
+macos/DerivedData/
+
+# CocoaPods
+ios/Pods/
+macos/Pods/
+
+# Metro bundler cache
+metro-cache/
+.expo/cache/
+.bundle
+
+Gemfile.lock
+/vendor
+

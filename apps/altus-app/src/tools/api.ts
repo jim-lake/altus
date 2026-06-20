@@ -14,20 +14,17 @@ export class ApiError extends Error {
 }
 
 export default {
-  init,
-  isReady,
-  getCustomBaseUrl,
-  setCustomBaseUrl,
-  getBaseUrl,
+  setUserAgent,
   get,
   post,
   put,
   del,
-  cdnGet,
   request,
   rawRequest,
   ApiError,
 };
+
+let g_userAgent = '';
 
 export interface RequestParams {
   url: string;
@@ -60,46 +57,9 @@ export type RequestResponse<T = JSONObject> =
 
 const DEFAULT_TIMEOUT = 10 * 1000;
 const MAX_RETRY_INTERVAL = 60 * 1000;
-const CUSTOM_BASE_URL_KEY = 'LBB_CUSTOM_BASE_URL';
 
-const DEV_BASE_URL = REMOTE_SERVER;
-const DEV_BASE_CDN_URL = REMOTE_SERVER;
-//const DEV_BASE_URL = 'https://api-prod.lbb-dev.com';
-//const DEV_BASE_CDN_URL = 'https://api-prod-cdn.lbb-dev.com';
-//const PROD_BASE_URL = 'https://api-prod.lbb-dev.com';
-//const PROD_BASE_CDN_URL = 'https://api-prod-cdn.lbb-dev.com';
-
-let g_baseUrl = '';
-let g_baseCdnUrl = '';
-let g_customBaseUrl = '';
-let g_userAgent = '';
-
-export async function init(): Promise<void> {
-  g_baseUrl = DEV_BASE_URL;
-  g_baseCdnUrl = DEV_BASE_CDN_URL;
-}
-
-export function isReady(): boolean {
-  return true;
-}
-export function getCustomBaseUrl(): string {
-  return g_customBaseUrl;
-}
-export function setCustomBaseUrl(url: string): void {
-  if (!url) {
-    g_customBaseUrl = '';
-  } else {
-    url = url.replace(/\/*$/, '');
-    g_customBaseUrl = url;
-  }
-  Storage.setItem({ key: CUSTOM_BASE_URL_KEY, value: g_customBaseUrl });
-}
-
-export function getBaseUrl(): string {
-  return g_customBaseUrl ? g_customBaseUrl : g_baseUrl;
-}
-export function getCdnUrl(): string {
-  return g_customBaseUrl ? g_customBaseUrl : g_baseCdnUrl;
+export function setUserAgent(agent: string) {
+  g_userAgent = agent;
 }
 
 export async function get<T>(
@@ -127,19 +87,11 @@ export async function del<T>(
   return request<T>(params);
 }
 export function request<T>(params: RequestParams): Promise<RequestResponse<T>> {
-  if (params.url.indexOf('http') !== 0) {
-    params.url = getBaseUrl() + params.url;
-  }
-
   if (params.retry) {
     return _requestRetry<T>(params);
   } else {
     return rawRequest<T>(params);
   }
-}
-async function cdnGet<T>(params: RequestParams): Promise<RequestResponse<T>> {
-  params.url = getCdnUrl() + params.url;
-  return rawRequest(params);
 }
 async function _requestRetry<T>(
   params: RequestParams

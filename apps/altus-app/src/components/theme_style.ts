@@ -84,12 +84,12 @@ export function setSchemeVariables(
     g_schemeVariableMap.set(scheme, map);
   }
   for (const k in variable_map) {
-    map.set(`var(--${k})`, variable_map[k]);
+    map.set(`var(--${k})`, variable_map[k] ?? '');
   }
 }
 export function setVariables(variable_map: StyleVariableMap) {
   for (const k in variable_map) {
-    g_variableMap.set(`var(--${k})`, variable_map[k]);
+    g_variableMap.set(`var(--${k})`, variable_map[k] ?? '');
   }
 }
 function _makeStyleSheet<T extends BaseStyleMap>(

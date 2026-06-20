@@ -7,7 +7,9 @@
     "ios": "react-native run-ios",
     "mac": "react-native run-macos",
     "lint": "eslint .",
-    "start": "react-native start"
+    "pretty": "prettier -u --write *",
+    "start": "react-native start",
+    "ts:check": "tsc --noEmit"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
@@ -28,7 +30,6 @@
     "@react-native-community/cli-platform-ios": "20.0.0",
     "@react-native/babel-preset": "0.81.6",
     "@react-native/metro-config": "0.81.6",
-    "@react-native/typescript-config": "0.81.6",
     "@types/react": "^19.1.4",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
