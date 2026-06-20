@@ -9,9 +9,7 @@ export default {
 
 export type Logger = (...args: unknown[]) => void;
 let g_logger: Logger | null = null;
-let g_enabled =
-  typeof localStorage !== 'undefined' &&
-  localStorage.getItem('xvg-enableLogging') !== 'false';
+let g_enabled = true;
 
 export function setDebugLogger(logger: Logger) {
   g_logger = logger;
