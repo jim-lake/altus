@@ -21,7 +21,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar barStyle='light-content' />
       <View style={styles.container}>
-        <Text style={styles.text}>Test</Text>
+        <Text style={styles.text}>Test2</Text>
       </View>
     </SafeAreaProvider>
   );
