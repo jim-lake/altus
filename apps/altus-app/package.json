@@ -6,7 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "mac": "react-native run-macos",
-    "lint": "eslint .",
+    "lint": "eslint . --fix",
     "pretty": "prettier -u --write *",
     "start": "react-native start",
     "ts:check": "tsc --noEmit"

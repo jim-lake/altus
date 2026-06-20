@@ -1,7 +1,5 @@
-import { retry } from './retry';
-import Storage from './storage';
-
 import { errorLog } from './log';
+import { retry } from './retry';
 
 import type { JSONObject } from './json';
 

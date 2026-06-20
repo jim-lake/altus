@@ -1,19 +1,9 @@
 import { StatusBar, StyleSheet, Text, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    color: 'black',
-    fontSize: 30,
-  },
+  container: { alignItems: 'center', flex: 1, justifyContent: 'center' },
+  text: { color: 'black', fontSize: 30 },
 });
 
 export default function App() {
