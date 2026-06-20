@@ -2,6 +2,11 @@
   "name": "altus-app",
   "version": "0.0.1",
   "private": true,
+  "imports": {
+    "#tools/*": "./src/tools/*",
+    "#lib/*": "./src/lib/*",
+    "#components/*": "./src/components/*"
+  },
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
@@ -9,6 +14,7 @@
     "lint": "eslint . --fix",
     "pretty": "prettier -u --write *",
     "start": "react-native start",
+    "test": "npx tsx --test tests/unit/*.test.ts",
     "ts:check": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,8 +23,7 @@
     "react-native": "0.81.6",
     "react-native-macos": "^0.81.7",
     "react-native-safe-area-context": "^5.5.2",
-    "react-native-webrtc": "*",
-    "xal-node": "*"
+    "react-native-webrtc": "file:../../packages/react-native-webrtc"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -33,6 +38,7 @@
     "@types/react": "^19.1.4",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
+    "babel-plugin-module-resolver": "^5.0.3",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
