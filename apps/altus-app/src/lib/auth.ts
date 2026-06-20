@@ -101,7 +101,12 @@ export class AuthService {
       body: formBlob(body),
     });
     if (result.err) {
-      errorLog('AuthService: Device code request failed', result.err.message, result.body, result.text);
+      errorLog(
+        'AuthService: Device code request failed',
+        result.err.message,
+        result.body,
+        result.text
+      );
       throw result.err;
     }
     log('AuthService: Got device code', result.body.user_code);
@@ -160,7 +165,12 @@ export class AuthService {
       body: formBlob(body),
     });
     if (result.err) {
-      errorLog('AuthService: Token refresh failed', result.err.message, result.body, result.text);
+      errorLog(
+        'AuthService: Token refresh failed',
+        result.err.message,
+        result.body,
+        result.text
+      );
       throw result.err;
     }
     this.setTokens(
@@ -185,10 +195,7 @@ export class AuthService {
     relyingParty: string
   ): Promise<XstsResponse> {
     const payload = {
-      Properties: {
-        SandboxId: 'RETAIL',
-        UserTokens: [userToken],
-      },
+      Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },
       RelyingParty: relyingParty,
       TokenType: 'JWT',
     };
@@ -201,7 +208,12 @@ export class AuthService {
       body: payload,
     });
     if (result.err) {
-      errorLog('AuthService: XSTS authorize failed', result.err.message, result.body, result.text);
+      errorLog(
+        'AuthService: XSTS authorize failed',
+        result.err.message,
+        result.body,
+        result.text
+      );
       throw result.err;
     }
     return result.body;
@@ -227,7 +239,12 @@ export class AuthService {
       body: payload,
     });
     if (result.err) {
-      errorLog('AuthService: User auth failed', result.err.message, result.body, result.text);
+      errorLog(
+        'AuthService: User auth failed',
+        result.err.message,
+        result.body,
+        result.text
+      );
       throw result.err;
     }
     return result.body;
@@ -271,7 +288,13 @@ export class AuthService {
       body: { token: userToken, offeringId: offering },
     });
     if (result.err) {
-      errorLog('AuthService: Stream token failed', offering, result.err.message, result.body, result.text);
+      errorLog(
+        'AuthService: Stream token failed',
+        offering,
+        result.err.message,
+        result.body,
+        result.text
+      );
       throw result.err;
     }
     return result.body;
@@ -295,7 +318,12 @@ export class AuthService {
       body: formBlob(body),
     });
     if (result.err) {
-      errorLog('AuthService: MSAL token failed', result.err.message, result.body, result.text);
+      errorLog(
+        'AuthService: MSAL token failed',
+        result.err.message,
+        result.body,
+        result.text
+      );
       throw result.err;
     }
     return result.body.access_token;

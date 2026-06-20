@@ -14,8 +14,8 @@ export class ApiError extends Error {
 export default {
   setUserAgent,
   get,
-  post,
   put,
+  post,
   del,
   request,
   rawRequest,
@@ -66,16 +66,16 @@ export async function get<T>(
   params.method = 'GET';
   return request<T>(params);
 }
-export async function post<T>(
-  params: RequestParams
-): Promise<RequestResponse<T>> {
-  params.method = 'POST';
-  return request<T>(params);
-}
 export async function put<T>(
   params: RequestParams
 ): Promise<RequestResponse<T>> {
   params.method = 'PUT';
+  return request<T>(params);
+}
+export async function post<T>(
+  params: RequestParams
+): Promise<RequestResponse<T>> {
+  params.method = 'POST';
   return request<T>(params);
 }
 export async function del<T>(

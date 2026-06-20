@@ -36,7 +36,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingVertical: 12,
   },
-  container: { backgroundColor: 'var(--bg-color)', flex: 1, justifyContent: 'center', padding: 32 },
+  container: {
+    backgroundColor: 'var(--bg-color)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 32,
+  },
   empty: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
@@ -126,12 +131,14 @@ function AuthScreen({ onDone, setConsoles }: AuthScreenProps) {
           <Text selectable style={s.info}>
             {`Go to ${deviceCode.verification_uri} and enter:`}
           </Text>
-          <Text selectable style={s.code}>{deviceCode.user_code}</Text>
+          <Text selectable style={s.code}>
+            {deviceCode.user_code}
+          </Text>
           <LinkTextButton
             text='Open In Browser'
             url={`${deviceCode.verification_uri}?otc=${deviceCode.user_code}`}
           />
-          <Text selectable style={s.info}>{'Waiting for authentication...'}</Text>
+          <Text style={s.info}>{'Waiting for authentication...'}</Text>
         </>
       ) : (
         <TextButton
@@ -140,7 +147,11 @@ function AuthScreen({ onDone, setConsoles }: AuthScreenProps) {
           disabled={busy}
         />
       )}
-      {error ? <Text selectable style={s.info}>{error}</Text> : null}
+      {error ? (
+        <Text selectable style={s.info}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -154,14 +165,14 @@ function HomeScreen({ consoles, onLogout }: HomeScreenProps) {
 
   return (
     <View style={s.container}>
-      <Text selectable style={s.title}>{'Your Consoles'}</Text>
+      <Text style={s.title}>{'Your Consoles'}</Text>
       {consoles.length === 0 ? (
-        <Text selectable style={s.empty}>{'No consoles found'}</Text>
+        <Text style={s.empty}>{'No consoles found'}</Text>
       ) : (
         consoles.map((c) => (
           <View key={c.serverId} style={s.consoleRow}>
-            <Text selectable style={s.consoleName}>{c.deviceName}</Text>
-            <Text selectable style={s.consoleDetail}>
+            <Text style={s.consoleName}>{c.deviceName}</Text>
+            <Text style={s.consoleDetail}>
               {`${c.consoleType} • ${c.powerState}`}
             </Text>
           </View>

@@ -18,11 +18,12 @@
     "ts:check": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-async-storage/async-storage": "3.1.1",
+    "@types/events": "3.0.3",
+    "events": "3.3.0",
     "react": "19.1.4",
     "react-native": "0.81.6",
-    "react-native-macos": "^0.81.7",
-    "react-native-safe-area-context": "^5.5.2",
+    "react-native-macos": "0.81.7",
     "react-native-webrtc": "file:../../packages/react-native-webrtc"
   },
   "devDependencies": {
@@ -45,8 +46,8 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-native": "^5.0.0",
-    "prettier": "^3.8.4",
-    "tsx": "^4.22.4",
+    "prettier": "3.8.4",
+    "tsx": "4.22.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1"
   },
