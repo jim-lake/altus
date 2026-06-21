@@ -1,7 +1,7 @@
-import type { RequestResponse } from '@/tools/api';
-
 import api from '@/tools/api';
-import { log, errorLog } from '@/tools/log';
+import { errorLog, log } from '@/tools/log';
+
+import type { RequestResponse } from '@/tools/api';
 
 export interface DeviceCodeResponse {
   user_code: string;

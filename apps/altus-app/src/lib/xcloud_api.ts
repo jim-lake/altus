@@ -1,7 +1,7 @@
-import type { RequestResponse } from '@/tools/api';
-
 import { get } from '@/stores/user_store';
-import { log, errorLog } from '@/tools/log';
+import { errorLog, log } from '@/tools/log';
+
+import type { RequestResponse } from '@/tools/api';
 
 export interface Console {
   deviceName: string;

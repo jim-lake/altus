@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { Text, View } from 'react-native';
-import '@/theme/colors';
 
 import { StyleSheet, useStyles } from '@/components/theme_style';
 import HomeScreen from '@/home_screen';
 import LoginScreen from '@/login_screen';
 import ConsoleStore from '@/stores/console_store';
-import UserStore, { useIsReady, useIsLoggedIn } from '@/stores/user_store';
+import UserStore, { useIsLoggedIn, useIsReady } from '@/stores/user_store';
 import { herdOnce } from '@/tools/herd';
+
+import '@/theme/colors';
 
 const styles = StyleSheet.create({
   container: {

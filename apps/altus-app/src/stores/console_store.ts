@@ -2,13 +2,13 @@ import { EventEmitter } from 'events';
 
 import { useSyncExternalStore } from 'react';
 
-import UserStore from './user_store';
-
-import type { Console } from '@/lib/xcloud_api';
-
 import { getConsoles } from '@/lib/xcloud_api';
 import { herd } from '@/tools/herd';
 import { errorLog, log } from '@/tools/log';
+
+import UserStore from './user_store';
+
+import type { Console } from '@/lib/xcloud_api';
 
 let g_consoleList: Console[] | null = null;
 

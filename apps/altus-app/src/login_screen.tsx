@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import type { DeviceCodeResponse } from '@/lib/auth';
-
 import LinkTextButton from '@/components/buttons/link_text_button';
 import TextButton from '@/components/buttons/text_button';
 import { StyleSheet, useStyles } from '@/components/theme_style';
 import { startLogin } from '@/stores/user_store';
 import { useLatestCallback } from '@/tools/latest_callback';
 import { log } from '@/tools/log';
+
+import type { DeviceCodeResponse } from '@/lib/auth';
 
 const styles = StyleSheet.create({
   code: {

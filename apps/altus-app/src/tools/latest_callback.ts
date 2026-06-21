@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 type Handler<T extends unknown[], U> = (...args: T) => U;
 

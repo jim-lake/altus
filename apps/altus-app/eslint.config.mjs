@@ -8,6 +8,7 @@ import importPlugin from 'eslint-plugin-import';
 import a11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 import noBoundFunctions from './scripts/no-bound-functions.mjs';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 
 export default [
   // Global ignores must be first and separate
@@ -61,6 +62,7 @@ export default [
       'react-native': reactNative,
       import: importPlugin,
       'jsx-a11y': a11y,
+      'simple-import-sort': simpleImportSort,
     },
     settings: {
       react: { version: 'detect' },
@@ -161,22 +163,36 @@ export default [
       'react-native/sort-styles': 'warn',
 
       // Import rules
-      'import/order': [
+      'import/order': 'off',
+      'simple-import-sort/imports': [
         'error',
         {
           groups: [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-            'type',
+            // Node builtins.
+            [
+              '^node:',
+              `^(assert|buffer|child_process|cluster|crypto|dgram|dns|events|fs|http|https|net|os|path|stream|timers|tls|tty|url|util|zlib)(/|$)`,
+            ],
+
+            // React then packages.
+            ['^react$', '^react', '^@?\\w'],
+
+            // Internal aliases.
+            ['^@/'],
+
+            // Parent imports.
+            ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
+
+            // Sibling imports.
+            ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
+
+            // Type imports LAST.
+            ['^.+\\u0000$'],
           ],
-          'newlines-between': 'always',
-          alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
+
+      'simple-import-sort/exports': 'off',
       'import/no-duplicates': 'error',
       'import/no-useless-path-segments': 'error',
       'import/no-cycle': 'error',

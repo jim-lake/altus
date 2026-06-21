@@ -1,6 +1,6 @@
 import { PlatformColor } from 'react-native';
 
-import { setVariables, setSchemeVariables } from '../components/theme_style';
+import { setSchemeVariables, setVariables } from '../components/theme_style';
 
 setVariables({
   'bg-color': 'white',

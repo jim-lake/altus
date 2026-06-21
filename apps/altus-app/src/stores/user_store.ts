@@ -2,18 +2,18 @@ import { EventEmitter } from 'events';
 
 import { useSyncExternalStore } from 'react';
 
-import type { DeviceCodeResponse } from '@/lib/auth';
-import type { RequestParams, RequestResponse } from '@/tools/api';
-
 import {
-  startDeviceCodeAuth,
   checkDeviceCode,
-  refreshAccessToken,
   getStreamingTokens,
+  refreshAccessToken,
+  startDeviceCodeAuth,
 } from '@/lib/auth';
 import api from '@/tools/api';
 import { errorLog, log } from '@/tools/log';
 import Storage from '@/tools/storage';
+
+import type { DeviceCodeResponse } from '@/lib/auth';
+import type { RequestParams, RequestResponse } from '@/tools/api';
 
 export interface SavedToken {
   access_token: string;

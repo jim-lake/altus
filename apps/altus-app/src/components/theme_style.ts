@@ -1,4 +1,4 @@
-import { useColorScheme, StyleSheet as BaseStyleSheet } from 'react-native';
+import { StyleSheet as BaseStyleSheet, useColorScheme } from 'react-native';
 
 import type {
   ColorValue,

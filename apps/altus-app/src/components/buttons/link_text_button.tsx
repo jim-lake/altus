@@ -7,12 +7,12 @@ import {
   View,
 } from 'react-native';
 
+import { useStyles } from '@/components/theme_style';
+
 import { baseStyles, useButtonStyles } from './button_style';
 
 import type { StyleProps } from './button_style';
-import type { ViewStyle, TextStyle } from 'react-native';
-
-import { useStyles } from '@/components/theme_style';
+import type { TextStyle, ViewStyle } from 'react-native';
 
 interface Props extends StyleProps {
   style?: ViewStyle;
