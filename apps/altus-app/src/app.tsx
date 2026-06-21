@@ -5,7 +5,9 @@ import '@/theme/colors';
 import { StyleSheet, useStyles } from '@/components/theme_style';
 import HomeScreen from '@/home_screen';
 import LoginScreen from '@/login_screen';
-import { init, useIsReady, useIsLoggedIn } from '@/stores/user_store';
+import ConsoleStore from '@/stores/console_store';
+import UserStore, { useIsReady, useIsLoggedIn } from '@/stores/user_store';
+import { herdOnce } from '@/tools/herd';
 
 const styles = StyleSheet.create({
   container: {
@@ -21,15 +23,19 @@ const styles = StyleSheet.create({
   },
 });
 
+const _startup = herdOnce(async () => {
+  await UserStore.init();
+  ConsoleStore.init();
+});
+
 export default function App() {
+  const s = useStyles(styles);
   const isReady = useIsReady();
   const isLoggedIn = useIsLoggedIn();
 
   useEffect(() => {
-    void init();
+    void _startup();
   }, []);
-
-  const s = useStyles(styles);
 
   if (!isReady) {
     return (

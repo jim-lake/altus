@@ -172,7 +172,7 @@ export async function rawRequest<T>(
       xhr.setRequestHeader(key, value);
     });
 
-    const parseResponse = (): RequestResponse<T> => {
+    xhr.onload = () => {
       const statusCode = xhr.status;
       const text = xhr.responseText ?? null;
 
@@ -204,26 +204,23 @@ export async function rawRequest<T>(
 
       const ok = statusCode >= 200 && statusCode < 300;
       if (!ok) {
-        return {
+        resolve({
           err: new ApiError(String(statusCode), statusCode),
           body: jsonBody as T,
           text,
           headers: responseHeaders,
           statusCode,
-        };
+        });
+        return;
       }
 
-      return {
+      resolve({
         err: null,
         body: jsonBody as T,
         text,
         headers: responseHeaders,
         statusCode,
-      };
-    };
-
-    xhr.onload = () => {
-      resolve(parseResponse());
+      });
     };
 
     xhr.ontimeout = () => {

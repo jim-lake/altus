@@ -37,13 +37,16 @@ const CHANGE_EVENT = 'change';
 function _emit(reason: string) {
   g_eventEmitter.emit(CHANGE_EVENT, reason);
 }
-function _subscribe(callback: (reason: string) => void) {
-  g_eventEmitter.on(CHANGE_EVENT, callback);
+export type Listener = (reason?: string) => void;
+export function addListener(listener: Listener) {
+  g_eventEmitter.on(CHANGE_EVENT, listener);
   return () => {
-    g_eventEmitter.removeListener(CHANGE_EVENT, callback);
+    g_eventEmitter.removeListener(CHANGE_EVENT, listener);
   };
 }
-
+export function removeListener(listener: Listener) {
+  g_eventEmitter.removeListener(CHANGE_EVENT, listener);
+}
 export async function init() {
   await _load();
   if (g_refreshToken) {
@@ -52,12 +55,14 @@ export async function init() {
   g_isReady = true;
   _emit('ready');
 }
-
 export function useIsReady() {
-  return useSyncExternalStore(_subscribe, () => g_isReady);
+  return useSyncExternalStore(addListener, () => g_isReady);
+}
+export function isLoggedIn() {
+  return Boolean(g_streamToken);
 }
 export function useIsLoggedIn() {
-  return useSyncExternalStore(_subscribe, () => Boolean(g_streamToken));
+  return useSyncExternalStore(addListener, isLoggedIn);
 }
 export function getAccessToken(): string {
   return g_accessToken;
@@ -293,7 +298,10 @@ export async function del<T>(
 }
 
 export default {
+  addListener,
+  removeListener,
   init,
+  isLoggedIn,
   useIsReady,
   useIsLoggedIn,
   startLogin,

@@ -7,6 +7,7 @@ import typescriptParser from '@typescript-eslint/parser';
 import importPlugin from 'eslint-plugin-import';
 import a11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
+import noBoundFunctions from './scripts/no-bound-functions.mjs';
 
 export default [
   // Global ignores must be first and separate
@@ -54,6 +55,7 @@ export default [
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     plugins: {
+      local: { rules: { 'no-bound-functions': noBoundFunctions } },
       react,
       'react-hooks': reactHooks,
       'react-native': reactNative,
@@ -68,7 +70,7 @@ export default [
       'import/ignore': ['node_modules', '\\.(css|less|scss|sass|styl)$'],
     },
     rules: {
-      // Strict JavaScript rules
+      'local/no-bound-functions': 'error',
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-unused-vars': 'error',
