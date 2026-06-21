@@ -157,10 +157,10 @@ export default [
       // React Native specific rules
       'react-native/no-unused-styles': 'off',
       'react-native/split-platform-components': 'error',
-      'react-native/no-inline-styles': 'warn',
+      'react-native/no-inline-styles': 'error',
       'react-native/no-color-literals': 'off',
       'react-native/no-raw-text': ['error', { skip: ['CustomText', 'Text'] }],
-      'react-native/sort-styles': 'warn',
+      'react-native/sort-styles': 'error',
 
       // Import rules
       'import/order': 'off',
@@ -238,6 +238,7 @@ export default [
     },
     plugins: { '@typescript-eslint': typescript },
     rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'off',
       // Disable base rules that are handled by TypeScript
       'no-redeclare': 'off',
       'no-unused-vars': 'off',

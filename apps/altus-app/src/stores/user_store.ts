@@ -83,7 +83,7 @@ export async function startLogin(): Promise<StartLoginResult> {
   let timer: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
 
-  const tick = async () => {
+  async function tick() {
     if (stopped) {
       return;
     }
@@ -119,7 +119,7 @@ export async function startLogin(): Promise<StartLoginResult> {
         errorLog('user_store: Poll tick failed', e);
       }
     }
-  };
+  }
 
   timer = setInterval(() => void tick(), intervalMs);
 
