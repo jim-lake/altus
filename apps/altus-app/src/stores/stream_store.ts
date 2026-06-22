@@ -46,6 +46,8 @@ const SDP_CONFIGURATION = {
   control: { minVersion: 1, maxVersion: 3 },
   input: { minVersion: 1, maxVersion: 9 },
   message: { minVersion: 1, maxVersion: 1 },
+  reliableinput: { minVersion: 9, maxVersion: 9 },
+  unreliableinput: { minVersion: 9, maxVersion: 9 },
 };
 
 let g_phase: StreamPhase = 'idle';
@@ -354,6 +356,8 @@ async function _createPeerConnection(): Promise<{
   _setupDataChannels(pc);
 
   const offer = (await pc.createOffer({})) as { type: string; sdp: string };
+  // Enable stereo audio
+  offer.sdp = offer.sdp.replace('useinbandfec=1', 'useinbandfec=1;stereo=1');
   await pc.setLocalDescription(offer);
   await gatheringDone;
 
@@ -501,6 +505,12 @@ const ACCESS_KEY = '4BDB3609-C1F1-4195-9B37-FEFF45DA8B8E';
 
 function _setupDataChannels(pc: RTCPeerConnection): void {
   log('stream_store: Creating data channels');
+  pc.createDataChannel('unreliableinput', {
+    protocol: '2.0',
+    ordered: false,
+    maxRetransmits: 0,
+  });
+  pc.createDataChannel('reliableinput', { protocol: '2.0', ordered: true });
   const messageChannel = pc.createDataChannel('message', {
     protocol: 'messageV1',
     ordered: true,
