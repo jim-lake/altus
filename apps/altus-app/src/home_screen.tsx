@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   homeScreen: { backgroundColor: 'var(--bg-color)', flex: 1 },
+  padBottom: { height: 50 },
   row: {
     flexDirection: 'row',
     marginBottom: TILE_MARGIN * 2,
@@ -152,7 +153,10 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
               {
                 key: 'g-none',
                 type: 'empty',
-                message: 'No playable cloud games available',
+                message:
+                  gameSearch.length > 0
+                    ? 'No matching games found.'
+                    : 'No playable cloud games available',
               },
             ]
           : chunkArray(playable, cols).map((items, i) => ({
@@ -175,7 +179,14 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
     }
 
     return result;
-  }, [consoles, cols, latestGames, filteredGames, moreLatestGames]);
+  }, [
+    consoles,
+    cols,
+    latestGames,
+    filteredGames,
+    moreLatestGames,
+    gameSearch.length,
+  ]);
 
   return (
     <SectionList
@@ -183,7 +194,7 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
       contentContainerStyle={s.content}
       onLayout={onLayout}
       sections={sections}
-      stickySectionHeadersEnabled={false}
+      stickySectionHeadersEnabled
       keyExtractor={(item) => item.key}
       renderSectionHeader={({ section }) => (
         <SectionHeader
@@ -246,7 +257,7 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
           </View>
         );
       }}
-      ListFooterComponent={null}
+      ListFooterComponent={<View style={s.padBottom} />}
     />
   );
 }

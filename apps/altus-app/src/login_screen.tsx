@@ -16,13 +16,13 @@ const styles = StyleSheet.create({
     color: 'var(--text-color)',
     fontSize: 32,
     fontWeight: 'bold',
-    marginVertical: 16,
+    marginTop: 5,
     textAlign: 'center',
   },
   info: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
-    marginBottom: 16,
+    marginTop: 20,
     textAlign: 'center',
   },
   loginScreen: {
@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
   },
-  openBrowser: { marginBottom: 16 },
+  openBrowser: { alignSelf: 'center', marginTop: 20 },
 });
 
 export default function LoginScreen({ style }: { style?: ViewStyle }) {
@@ -70,9 +70,7 @@ export default function LoginScreen({ style }: { style?: ViewStyle }) {
             url={`${deviceCode.verification_uri}?otc=${deviceCode.user_code}`}
             style={s.openBrowser}
           />
-          <Text selectable style={s.info}>
-            {'Waiting for authentication...'}
-          </Text>
+          <Text style={s.info}>{'Waiting for authentication...'}</Text>
         </>
       ) : (
         <TextButton
