@@ -13,7 +13,7 @@ import { herdOnce } from '@/tools/herd';
 import '@/theme/colors';
 
 const styles = StyleSheet.create({
-  container: {
+  app: {
     backgroundColor: 'var(--bg-color)',
     flex: 1,
     justifyContent: 'center',
@@ -44,7 +44,7 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <View style={s.container}>
+      <View style={s.app}>
         <Text style={s.loading}>{'Loading...'}</Text>
       </View>
     );

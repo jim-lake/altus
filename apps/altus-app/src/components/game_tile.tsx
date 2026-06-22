@@ -41,9 +41,8 @@ export default function GameTile({ title, style }: Props) {
     void fetchProduct(title.details.productId);
   }, [title.details.productId]);
 
-  const imageUri = product?.imageTile
-    ? `https:${product.imageTile}?w=${SIZE}`
-    : null;
+  const imageSrc = product?.imageTile ?? product?.imagePoster;
+  const imageUri = imageSrc ? `https:${imageSrc}?w=${SIZE}` : null;
 
   return (
     <View style={[s.gameTile, style]}>

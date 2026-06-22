@@ -18,19 +18,20 @@ import { logout } from '@/stores/user_store';
 import { useLatestCallback } from '@/tools/latest_callback';
 
 import type { Console, Title } from '@/lib/xcloud_api';
+import type { ViewStyle } from 'react-native';
 
 const TARGET_TILE_WIDTH = 200;
 const ROW_HORIZONTAL_PADDING = 20;
 const TILE_MARGIN = 5;
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: 'var(--bg-color)', flex: 1 },
   content: { padding: 0 },
   empty: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
     paddingVertical: 8,
   },
+  homeScreen: { backgroundColor: 'var(--bg-color)', flex: 1 },
   logout: { marginTop: 32 },
   row: {
     flexDirection: 'row',
@@ -74,7 +75,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return rows;
 }
 
-export default function HomeScreen() {
+export default function HomeScreen({ style }: { style?: ViewStyle }) {
   const s = useStyles(styles);
   const [contentWidth, setContentWidth] = useState(
     Dimensions.get('window').width
@@ -159,7 +160,7 @@ export default function HomeScreen() {
 
   return (
     <SectionList
-      style={s.container}
+      style={[s.homeScreen, style]}
       contentContainerStyle={s.content}
       onLayout={onLayout}
       sections={sections}

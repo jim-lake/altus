@@ -143,9 +143,9 @@ async function _flush() {
           imageTile: product.Image_Tile?.URL ?? null,
           imagePoster: product.Image_Poster?.URL ?? null,
         };
-        if (!info.imageTile && !info.imagePoster) {
+        if (!info.imageTile) {
           errorLog(
-            'product_store: No images for',
+            'product_store: No tile image for',
             product.StoreId,
             product.ProductTitle
           );
@@ -192,6 +192,9 @@ async function _flush() {
     // Resolve all pending promises
     for (const req of batch) {
       const cached = g_cache.get(req.productId);
+      if (!cached?.productInfo) {
+        errorLog('product_store: Failed to get info for', req.productId);
+      }
       req.resolve(cached?.productInfo ?? null);
       g_inflight.delete(req.productId);
     }

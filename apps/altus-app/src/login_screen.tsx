@@ -9,6 +9,7 @@ import { useLatestCallback } from '@/tools/latest_callback';
 import { log } from '@/tools/log';
 
 import type { DeviceCodeResponse } from '@/lib/auth';
+import type { ViewStyle } from 'react-native';
 
 const styles = StyleSheet.create({
   code: {
@@ -18,22 +19,22 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     textAlign: 'center',
   },
-  container: {
-    backgroundColor: 'var(--bg-color)',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 32,
-  },
   info: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
   },
+  loginScreen: {
+    backgroundColor: 'var(--bg-color)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 32,
+  },
   openBrowser: { marginBottom: 16 },
 });
 
-export default function LoginScreen() {
+export default function LoginScreen({ style }: { style?: ViewStyle }) {
   const s = useStyles(styles);
   const [deviceCode, setDeviceCode] = useState<DeviceCodeResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,7 +56,7 @@ export default function LoginScreen() {
   });
 
   return (
-    <View style={s.container}>
+    <View style={[s.loginScreen, style]}>
       {deviceCode ? (
         <>
           <Text selectable style={s.info}>
