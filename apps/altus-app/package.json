@@ -16,6 +16,7 @@
     "start": "react-native start",
     "test": "npx tsx --test tests/unit/*.test.ts",
     "test:unit:single": "npx tsx --test",
+    "test:bundle": "react-native bundle --platform macos --entry-file index.js --bundle-output /tmp/altus-bundle.js --dev false",
     "ts:check": "tsc --noEmit"
   },
   "dependencies": {

@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 
 import {
   checkDeviceCode,
+  getMsalToken,
   getStreamingTokens,
   refreshAccessToken,
   startDeviceCodeAuth,
@@ -28,7 +29,7 @@ export interface StreamingToken {
   type: 'xHome' | 'xgpuweb' | 'xgpuwebf2p';
 }
 
-export type CredentialType = 'xHome' | 'xgpuweb';
+export type CredentialType = 'xHome' | 'xgpuweb' | 'msal';
 
 const TOKEN_KEY = 'ALTUS_TOKEN_KEY';
 
@@ -38,6 +39,7 @@ let g_refreshToken = '';
 let g_expiresAt = 0;
 let g_xHome: StreamingToken | null = null;
 let g_xGpuWeb: StreamingToken | null = null;
+let g_msalToken: StreamingToken | null = null;
 let g_pollAbort: (() => void) | null = null;
 
 const g_eventEmitter = new EventEmitter();
@@ -173,6 +175,7 @@ export async function logout(): Promise<void> {
   g_expiresAt = 0;
   g_xHome = null;
   g_xGpuWeb = null;
+  g_msalToken = null;
   await _save();
   _emit('logout');
 }
@@ -217,6 +220,7 @@ async function _verifyToken() {
     g_expiresAt = 0;
     g_xHome = null;
     g_xGpuWeb = null;
+    g_msalToken = null;
     await _save();
   }
 }
@@ -240,7 +244,13 @@ const DEVICE_INFO = JSON.stringify({
 });
 
 function _getCredential(credentialType: CredentialType): StreamingToken | null {
-  return credentialType === 'xHome' ? g_xHome : g_xGpuWeb;
+  if (credentialType === 'xHome') {
+    return g_xHome;
+  }
+  if (credentialType === 'msal') {
+    return g_msalToken;
+  }
+  return g_xGpuWeb;
 }
 
 function _resolveUrl(url: string, credential: StreamingToken): string {
@@ -266,6 +276,16 @@ async function _ensureStreamToken(
     g_refreshToken = tokenResp.refresh_token;
     g_expiresAt = Date.now() + tokenResp.expires_in * 1000;
     await _save();
+  }
+  if (credentialType === 'msal') {
+    const token = await getMsalToken(g_refreshToken);
+    g_msalToken = {
+      token,
+      expiresAt: Date.now() + 3600 * 1000,
+      baseUri: '',
+      type: 'xHome',
+    };
+    return g_msalToken;
   }
   const tokens = await getStreamingTokens(g_accessToken);
   _applyStreamingTokens(tokens);
@@ -318,6 +338,13 @@ export async function del<T>(
   params: AuthenticatedRequestParams
 ): Promise<RequestResponse<T>> {
   return api.del<T>(await _prepareParams(params));
+}
+
+export async function getToken(
+  credentialType: CredentialType
+): Promise<string> {
+  const credential = await _ensureStreamToken(credentialType);
+  return credential.token;
 }
 
 export default {

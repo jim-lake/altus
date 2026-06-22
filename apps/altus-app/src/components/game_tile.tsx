@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, PixelRatio, Text, View } from 'react-native';
+import { Image, PixelRatio, Pressable, Text } from 'react-native';
 
 import { StyleSheet, useStyles } from '@/components/theme_style';
 import { useProductInfo } from '@/stores/product_store';
@@ -37,8 +37,9 @@ const styles = StyleSheet.create({
 interface Props {
   style?: ViewStyle;
   title: Title;
+  onPress?: (title: Title) => void;
 }
-export default function GameTile({ title, style }: Props) {
+export default function GameTile({ title, style, onPress }: Props) {
   const s = useStyles(styles);
   const product = useProductInfo(title.details.productId);
 
@@ -46,7 +47,7 @@ export default function GameTile({ title, style }: Props) {
   const imageUri = imageSrc ? `https:${imageSrc}?w=${SIZE}` : null;
 
   return (
-    <View style={[s.gameTile, style]}>
+    <Pressable style={[s.gameTile, style]} onPress={() => onPress?.(title)}>
       <Text selectable numberOfLines={3} style={s.fallbackText}>
         {product?.productTitle ?? title.titleId}
       </Text>
@@ -57,6 +58,6 @@ export default function GameTile({ title, style }: Props) {
           resizeMode='contain'
         />
       ) : null}
-    </View>
+    </Pressable>
   );
 }

@@ -76,7 +76,13 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return rows;
 }
 
-export default function HomeScreen({ style }: { style?: ViewStyle }) {
+export default function HomeScreen({
+  style,
+  onGamePress,
+}: {
+  style?: ViewStyle;
+  onGamePress?: (title: Title) => void;
+}) {
   const s = useStyles(styles);
   const [contentWidth, setContentWidth] = useState(
     Dimensions.get('window').width
@@ -249,7 +255,12 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
         return (
           <View style={s.row}>
             {item.items.map((t) => (
-              <GameTile key={t.titleId} style={s.tile} title={t} />
+              <GameTile
+                key={t.titleId}
+                style={s.tile}
+                title={t}
+                onPress={onGamePress}
+              />
             ))}
             {Array.from({ length: spacers }, (_, i) => (
               <View key={`sp-${i}`} style={s.spacer} />

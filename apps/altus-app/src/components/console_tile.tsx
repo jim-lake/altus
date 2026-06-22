@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
 
 import { StyleSheet, useStyles } from '@/components/theme_style';
 
@@ -24,17 +24,18 @@ const styles = StyleSheet.create({
 interface Props {
   style?: ViewStyle;
   console: Console;
+  onPress?: (console: Console) => void;
 }
-export default function ConsoleTile({ console: c, style }: Props) {
+export default function ConsoleTile({ console: c, style, onPress }: Props) {
   const s = useStyles(styles);
   return (
-    <View style={[s.consoleTile, style]}>
+    <Pressable style={[s.consoleTile, style]} onPress={() => onPress?.(c)}>
       <Text selectable numberOfLines={1} style={s.name}>
         {c.deviceName}
       </Text>
       <Text selectable style={s.detail}>
         {`${c.consoleType} • ${c.powerState}`}
       </Text>
-    </View>
+    </Pressable>
   );
 }
