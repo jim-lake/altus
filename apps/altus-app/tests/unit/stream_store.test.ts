@@ -89,7 +89,7 @@ class XMLHttpRequestShim {
         hostname: parsed.hostname,
         port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
         path: parsed.pathname + parsed.search,
-        headers,
+        headers: { ...headers, connection: 'close' },
         timeout: this.timeout || undefined,
       };
 
@@ -159,6 +159,7 @@ const webrtcPath = require.resolve('react-native-webrtc');
 // Wrap RTCPeerConnection to configure H264 codec (xCloud requires it)
 let g_videoRtpCount = 0;
 let g_audioRtpCount = 0;
+const g_unsubs: Array<() => void> = [];
 
 class PatchedPeerConnection extends WeriftPeerConnection {
   constructor(config?: object) {
@@ -190,17 +191,21 @@ class PatchedPeerConnection extends WeriftPeerConnection {
       (e: {
         track: {
           kind: string;
-          onReceiveRtp: { subscribe: (cb: () => void) => void };
+          onReceiveRtp: {
+            subscribe: (cb: () => void) => { unSubscribe: () => void };
+          };
         };
       }) => {
         if (e.track.kind === 'video') {
-          e.track.onReceiveRtp.subscribe(() => {
+          const sub = e.track.onReceiveRtp.subscribe(() => {
             g_videoRtpCount++;
           });
+          g_unsubs.push(() => sub.unSubscribe());
         } else if (e.track.kind === 'audio') {
-          e.track.onReceiveRtp.subscribe(() => {
+          const sub = e.track.onReceiveRtp.subscribe(() => {
             g_audioRtpCount++;
           });
+          g_unsubs.push(() => sub.unSubscribe());
         }
       }
     );
@@ -212,6 +217,12 @@ function getVideoRtpCount() {
 }
 function getAudioRtpCount() {
   return g_audioRtpCount;
+}
+function cleanupRtp() {
+  for (const unsub of g_unsubs) {
+    unsub();
+  }
+  g_unsubs.length = 0;
 }
 
 // Wrap RTCSessionDescription to accept { type, sdp } like react-native-webrtc
@@ -249,7 +260,7 @@ interface StreamStoreModule {
   getSessionId: () => string | null;
   getStreamUrl: () => string | null;
   getError: () => string | null;
-  stop: () => void;
+  stop: () => Promise<void>;
 }
 
 let UserStore: UserStoreModule;
@@ -271,8 +282,8 @@ before(async () => {
   StreamStore = streamMod.default;
 });
 
-after(() => {
-  StreamStore?.stop();
+after(async () => {
+  await StreamStore?.stop();
 });
 
 // Fortnite titleId
@@ -280,16 +291,13 @@ const FORTNITE_TITLE_ID = 'FORTNITE';
 
 void describe('stream_store: startPlay negotiation', () => {
   void it('starts a session, provisions, SDP exchanges, ICE connects, and gets video track', async () => {
-    void StreamStore.startPlay(FORTNITE_TITLE_ID);
+    const playPromise = StreamStore.startPlay(FORTNITE_TITLE_ID);
 
-    // Poll until connected or fail (120s max — ICE + data channel handshake)
+    // Poll until connected or fail (120s max)
     for (let i = 0; i < 120; i++) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const phase = StreamStore.getPhase();
-      if (phase === 'connected') {
-        break;
-      }
-      if (phase === 'failed') {
+      if (phase === 'connected' || phase === 'failed') {
         break;
       }
     }
@@ -326,5 +334,10 @@ void describe('stream_store: startPlay negotiation', () => {
 
     assert.ok(getVideoRtpCount() > 0, 'should receive video RTP packets');
     assert.ok(getAudioRtpCount() > 0, 'should receive audio RTP packets');
+
+    // Unsubscribe RTP listeners before closing so werift can exit cleanly
+    cleanupRtp();
+    await StreamStore.stop();
+    await playPromise.catch(() => {});
   });
 });

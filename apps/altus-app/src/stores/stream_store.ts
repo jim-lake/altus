@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import { useSyncExternalStore } from 'react';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 
-import { get, getToken, post } from '@/stores/user_store';
+import { del, get, getToken, post } from '@/stores/user_store';
 import { errorLog, log } from '@/tools/log';
 
 import type { CredentialType } from '@/stores/user_store';
@@ -94,6 +94,7 @@ export function getError(): string | null {
 
 export async function startPlay(titleId: string): Promise<void> {
   _reset();
+  g_stopped = false;
   g_phase = 'starting';
   _emit();
 
@@ -135,8 +136,35 @@ export async function startPlay(titleId: string): Promise<void> {
   }
 }
 
-export function stop(): void {
-  _reset();
+let g_stopped = false;
+
+export async function stop(): Promise<void> {
+  g_stopped = true;
+  const sessionId = g_sessionId;
+  const pc = g_pc;
+
+  if (g_keepaliveTimer) {
+    clearInterval(g_keepaliveTimer);
+    g_keepaliveTimer = null;
+  }
+  g_pc = null;
+  g_phase = 'idle';
+  g_sessionId = null;
+  g_streamUrl = null;
+  g_error = null;
+  _emit();
+
+  if (pc) {
+    await pc.close();
+  }
+  if (sessionId) {
+    log('stream_store: Stopping session', sessionId);
+    await del({
+      url: `/v5/sessions/cloud/${sessionId}`,
+      credentialType: 'xgpuweb',
+    });
+    log('stream_store: Session stopped', sessionId);
+  }
 }
 
 function _reset() {
@@ -145,14 +173,13 @@ function _reset() {
     g_keepaliveTimer = null;
   }
   if (g_pc) {
-    g_pc.close();
+    void g_pc.close();
     g_pc = null;
   }
   g_phase = 'idle';
   g_sessionId = null;
   g_streamUrl = null;
   g_error = null;
-  _emit();
 }
 
 async function _startSession(
@@ -203,6 +230,9 @@ async function _pollUntilProvisioned(
   const MAX_POLLS = 60;
   let connected = false;
   for (let i = 0; i < MAX_POLLS; i++) {
+    if (g_stopped) {
+      return;
+    }
     await _sleep(1000);
     const result = await get<SessionStateResponse>({
       url: `/v5/sessions/cloud/${sessionId}/state`,
@@ -403,6 +433,9 @@ async function _pollSdpAnswer(
 ): Promise<string> {
   const MAX_POLLS = 20;
   for (let i = 0; i < MAX_POLLS; i++) {
+    if (g_stopped) {
+      throw new Error('stopped');
+    }
     await _sleep(500);
     const result = await get<SdpResponse>({
       url: `/v5/sessions/cloud/${sessionId}/sdp`,
@@ -454,6 +487,9 @@ async function _pollRemoteIceCandidates(
   }
   const MAX_POLLS = 30;
   for (let i = 0; i < MAX_POLLS; i++) {
+    if (g_stopped) {
+      return;
+    }
     await _sleep(1000);
     const result = await get<{ exchangeResponse: string }>({
       url: `/v5/sessions/cloud/${sessionId}/ice`,

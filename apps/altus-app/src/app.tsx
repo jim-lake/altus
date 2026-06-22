@@ -68,7 +68,15 @@ export default function App() {
   }
 
   if (activeGame) {
-    return <GameScreen title={activeGame.title} titleId={activeGame.titleId} />;
+    return (
+      <GameScreen
+        title={activeGame.title}
+        titleId={activeGame.titleId}
+        onDisconnect={() => {
+          setActiveGame(null);
+        }}
+      />
+    );
   }
 
   return <HomeScreen onGamePress={handleGamePress} />;
