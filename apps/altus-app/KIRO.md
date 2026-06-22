@@ -73,6 +73,7 @@ State is held in module-level `let` variables. Change notification via `EventEmi
 - JSX strings must be wrapped in `{'text'}` (react-native `no-raw-text` rule)
 - One prop per line in multiline JSX
 - No `.bind()` in JSX; arrow functions allowed, regular function refs allowed
+- Components always accept an optional `style?: ViewStyle` prop applied as `[s.componentName, style]` on the outermost View so parents can override layout/spacing
 
 ### Styling
 

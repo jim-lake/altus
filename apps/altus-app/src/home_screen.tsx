@@ -1,16 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Dimensions,
-  SectionList,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Dimensions, SectionList, Text, View } from 'react-native';
 
 import TextButton from '@/components/buttons/text_button';
 import ConsoleTile from '@/components/console_tile';
 import GameTile from '@/components/game_tile';
+import SectionHeader from '@/components/section_header';
 import { StyleSheet, useStyles } from '@/components/theme_style';
 import {
   fetch as fetchConsoles,
@@ -33,8 +27,6 @@ const ROW_HORIZONTAL_PADDING = 20;
 const TILE_MARGIN = 5;
 
 const styles = StyleSheet.create({
-  clearButton: { paddingHorizontal: 6 },
-  clearText: { color: 'var(--secondary-text-color)', fontSize: 16 },
   content: { padding: 0 },
   empty: {
     color: 'var(--secondary-text-color)',
@@ -47,32 +39,8 @@ const styles = StyleSheet.create({
     marginBottom: TILE_MARGIN * 2,
     paddingHorizontal: ROW_HORIZONTAL_PADDING,
   },
-  searchInput: {
-    borderColor: 'var(--secondary-text-color)',
-    borderRadius: 6,
-    borderWidth: 1,
-    color: 'var(--text-color)',
-    fontSize: 14,
-    height: 28,
-    paddingHorizontal: 8,
-    width: 180,
-  },
-  searchRow: { alignItems: 'center', flexDirection: 'row' },
-  sectionHeader: {
-    backgroundColor: 'var(--bg-color)',
-    color: 'var(--text-color)',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
-    marginTop: 16,
-    paddingBottom: 12,
-    paddingTop: 24,
-  },
   sectionHeaderRow: {
-    alignItems: 'center',
-    backgroundColor: 'var(--bg-color)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    paddingLeft: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
     paddingRight: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
   },
   showMoreButton: {
@@ -197,35 +165,18 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
       stickySectionHeadersEnabled={false}
       keyExtractor={(item) => item.key}
       renderSectionHeader={({ section }) => (
-        <View style={s.sectionHeaderRow}>
-          <Text selectable style={s.sectionHeader}>
-            {section.title}
-          </Text>
-          {section.title === 'Your Consoles' && (
-            <TextButton text='Log Out' type='danger' onPress={handleLogout} />
-          )}
-          {section.title === 'Cloud Games' && (
-            <View style={s.searchRow}>
-              <TextInput
-                style={s.searchInput}
-                placeholder='Search games...'
-                placeholderTextColor='var(--secondary-text-color)'
-                value={gameSearch}
-                onChangeText={setGameSearch}
-              />
-              {gameSearch.length > 0 && (
-                <TouchableOpacity
-                  style={s.clearButton}
-                  onPress={() => {
-                    setGameSearch('');
-                  }}
-                >
-                  <Text style={s.clearText}>{'✕'}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
+        <SectionHeader
+          style={s.sectionHeaderRow}
+          text={section.title}
+          buttonText={section.title === 'Your Consoles' ? 'Log Out' : undefined}
+          onButtonPress={
+            section.title === 'Your Consoles' ? handleLogout : undefined
+          }
+          onSearchChange={
+            section.title === 'Cloud Games' ? setGameSearch : undefined
+          }
+          searchValue={section.title === 'Cloud Games' ? gameSearch : undefined}
+        />
       )}
       renderItem={({ item }) => {
         if (item.type === 'empty') {
