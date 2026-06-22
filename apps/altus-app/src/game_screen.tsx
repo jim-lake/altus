@@ -13,12 +13,8 @@ import type { ViewStyle } from 'react-native';
 
 const styles = StyleSheet.create({
   gameScreen: { backgroundColor: 'black', flex: 1 },
-  status: {
-    color: 'var(--secondary-text-color)',
-    fontSize: 14,
-    padding: 20,
-    textAlign: 'center',
-  },
+  placeholder: { backgroundColor: '#112244', flex: 1 },
+  status: { color: '#aaa', fontSize: 11, padding: 8 },
   video: { flex: 1 },
 });
 
@@ -41,29 +37,20 @@ export default function GameScreen({ style, title, titleId }: Props) {
     };
   }, [titleId]);
 
-  if (phase === 'failed') {
-    return (
-      <View style={[s.gameScreen, style]}>
-        <Text style={s.status}>{`Failed: ${error ?? 'unknown'}`}</Text>
-      </View>
-    );
-  }
-
-  if (streamUrl) {
-    return (
-      <View style={[s.gameScreen, style]}>
+  return (
+    <View style={[s.gameScreen, style]}>
+      <Text style={s.status}>
+        {`${title} | phase: ${phase} | stream: ${streamUrl ? 'yes' : 'no'}${error ? ` | error: ${error}` : ''}`}
+      </Text>
+      {streamUrl ? (
         <RTCView
           streamURL={streamUrl}
           style={s.video as object}
           objectFit='cover'
         />
-      </View>
-    );
-  }
-
-  return (
-    <View style={[s.gameScreen, style]}>
-      <Text style={s.status}>{`${title} — ${phase}`}</Text>
+      ) : (
+        <View style={s.placeholder} />
+      )}
     </View>
   );
 }

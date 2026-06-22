@@ -1,11 +1,7 @@
 import { EventEmitter } from 'events';
 
 import { useSyncExternalStore } from 'react';
-import {
-  RTCIceCandidate,
-  RTCPeerConnection,
-  RTCSessionDescription,
-} from 'react-native-webrtc';
+import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 
 import { get, getToken, post } from '@/stores/user_store';
 import { errorLog, log } from '@/tools/log';
@@ -23,12 +19,6 @@ export type StreamPhase =
   | 'connected'
   | 'failed';
 
-interface IceCandidate {
-  candidate: string;
-  sdpMLineIndex: number;
-  sdpMid: string;
-}
-
 interface StartStreamResponse {
   sessionPath: string;
   sessionId?: string;
@@ -41,10 +31,6 @@ interface SessionStateResponse {
 
 interface SdpResponse {
   sdp: string;
-  exchangeResponse: string;
-}
-
-interface IceResponse {
   exchangeResponse: string;
 }
 
@@ -124,16 +110,14 @@ export async function startPlay(titleId: string): Promise<void> {
 
     await _sendSdpOffer(g_sessionId, sdp, 'xgpuweb');
     const sdpAnswer = await _pollSdpAnswer(g_sessionId, 'xgpuweb');
+
+    // Send local candidates and poll for remote ones
+    await _setRemoteDescription(sdpAnswer);
+    await _sendIceCandidates(g_sessionId, 'xgpuweb', candidates);
     g_phase = 'sdp_answer';
     _emit();
 
-    await _setRemoteDescription(sdpAnswer);
-    const remoteCandidates = await _exchangeIce(
-      g_sessionId,
-      'xgpuweb',
-      candidates
-    );
-    await _addIceCandidates(remoteCandidates);
+    await _pollRemoteIceCandidates(g_sessionId, 'xgpuweb');
     g_phase = 'ice_exchange';
     _emit();
 
@@ -274,44 +258,106 @@ async function _createPeerConnection(): Promise<{
   const pc = new RTCPeerConnection({});
   g_pc = pc;
 
-  pc.addTransceiver('audio', { direction: 'sendrecv' });
+  pc.addTransceiver('audio', { direction: 'recvonly' });
   pc.addTransceiver('video', { direction: 'recvonly' });
 
-  const candidates: string[] = [];
-  pc.onicecandidate = (event: {
-    candidate: {
-      candidate: string;
-      sdpMid: string | null;
-      sdpMLineIndex: number | null;
-      usernameFragment: string | null;
-    } | null;
-  }) => {
-    if (event.candidate) {
-      candidates.push(
-        JSON.stringify({
-          candidate: event.candidate.candidate,
-          sdpMid: event.candidate.sdpMid,
-          sdpMLineIndex: event.candidate.sdpMLineIndex,
-          usernameFragment: event.candidate.usernameFragment,
-        })
-      );
+  pc.onconnectionstatechange = () => {
+    log('stream_store: connectionState:', pc.connectionState);
+    if (pc.connectionState === 'failed') {
+      errorLog('stream_store: peer connection failed');
     }
   };
+  pc.oniceconnectionstatechange = () => {
+    log('stream_store: iceConnectionState:', pc.iceConnectionState);
+    if (pc.iceConnectionState === 'failed') {
+      errorLog('stream_store: ICE connection failed');
+    }
+    if (pc.iceConnectionState === 'disconnected') {
+      errorLog('stream_store: ICE connection disconnected');
+    }
+  };
+  pc.onicegatheringstatechange = () => {
+    log('stream_store: iceGatheringState:', pc.iceGatheringState);
+  };
+  pc.onsignalingstatechange = () => {
+    log('stream_store: signalingState:', pc.signalingState);
+  };
+  pc.onnegotiationneeded = () => {
+    log('stream_store: negotiationneeded');
+  };
+  pc.onicecandidateerror = (event: {
+    errorCode: number;
+    errorText: string;
+    url: string;
+  }) => {
+    errorLog(
+      'stream_store: ICE candidate error:',
+      event.errorCode,
+      event.errorText,
+      event.url
+    );
+  };
+  pc.onerror = (event: { error: { message: string } }) => {
+    errorLog('stream_store: peer connection error:', event.error?.message);
+  };
+  pc.ondatachannel = (event: { channel: { label: string } }) => {
+    log('stream_store: ondatachannel:', event.channel.label);
+  };
 
-  pc.ontrack = (event: { streams: Array<{ toURL: () => string }> }) => {
-    const stream = event.streams[0];
-    if (stream) {
-      g_streamUrl = stream.toURL();
+  const candidates: string[] = [];
+  const gatheringDone = new Promise<void>((resolve) => {
+    pc.onicecandidate = (event: {
+      candidate: {
+        candidate: string;
+        sdpMid: string | null;
+        sdpMLineIndex: number | null;
+        usernameFragment: string | null;
+      } | null;
+    }) => {
+      if (event.candidate) {
+        log('stream_store: local candidate:', event.candidate.candidate);
+        candidates.push(
+          JSON.stringify({
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            usernameFragment: event.candidate.usernameFragment,
+          })
+        );
+      } else {
+        // null candidate means gathering complete
+        resolve();
+      }
+    };
+    // Fallback timeout in case null candidate never fires
+    setTimeout(resolve, 5000);
+  });
+
+  pc.ontrack = (event: {
+    track: { kind: string };
+    streams: Array<{ toURL: () => string; id: string }>;
+  }) => {
+    log(
+      'stream_store: ontrack kind:',
+      event.track.kind,
+      'streams:',
+      event.streams.length
+    );
+    if (event.track.kind === 'video' && event.streams[0]) {
+      g_streamUrl = event.streams[0].toURL();
+      log('stream_store: streamUrl set:', g_streamUrl);
       _emit();
     }
   };
 
+  // Create data channels BEFORE createOffer so they appear in the SDP
+  _setupDataChannels(pc);
+
   const offer = (await pc.createOffer({})) as { type: string; sdp: string };
   await pc.setLocalDescription(offer);
+  await gatheringDone;
 
-  // Wait for ICE gathering
-  await _sleep(500);
-
+  log('stream_store: Gathered', candidates.length, 'ICE candidates');
   return { sdp: offer.sdp, candidates };
 }
 
@@ -324,20 +370,12 @@ async function _setRemoteDescription(sdp: string): Promise<void> {
   );
 }
 
-async function _addIceCandidates(candidates: IceCandidate[]): Promise<void> {
-  if (!g_pc) {
-    throw new Error('no_peer_connection');
-  }
-  for (const c of candidates) {
-    await g_pc.addIceCandidate(new RTCIceCandidate(c));
-  }
-}
-
 async function _sendSdpOffer(
   sessionId: string,
   sdp: string,
   credentialType: CredentialType
 ): Promise<void> {
+  log('stream_store: SDP offer:\n', sdp);
   const result = await post<unknown>({
     url: `/v5/sessions/cloud/${sessionId}/sdp`,
     credentialType,
@@ -379,7 +417,7 @@ async function _pollSdpAnswer(
     }
     const parsed = JSON.parse(result.body.exchangeResponse) as { sdp?: string };
     if (parsed.sdp) {
-      log('stream_store: Got SDP answer');
+      log('stream_store: Got SDP answer:\n', parsed.sdp);
       return parsed.sdp;
     }
   }
@@ -387,57 +425,221 @@ async function _pollSdpAnswer(
   throw new Error('sdp_answer_timeout');
 }
 
-async function _exchangeIce(
+async function _sendIceCandidates(
   sessionId: string,
   credentialType: CredentialType,
   localCandidates: string[]
-): Promise<IceCandidate[]> {
+): Promise<void> {
   log('stream_store: Sending', localCandidates.length, 'ICE candidates');
-  const postResult = await post<unknown>({
+  const result = await post<unknown>({
     url: `/v5/sessions/cloud/${sessionId}/ice`,
     credentialType,
     body: { candidates: localCandidates },
   });
-  if (postResult.err) {
-    errorLog(
-      'stream_store: ice POST failed',
-      postResult.statusCode,
-      postResult.text
-    );
+  if (result.err) {
+    errorLog('stream_store: ice POST failed', result.statusCode, result.text);
   }
+}
 
-  const MAX_POLLS = 120;
+async function _pollRemoteIceCandidates(
+  sessionId: string,
+  credentialType: CredentialType
+): Promise<void> {
+  if (!g_pc) {
+    throw new Error('no_peer_connection');
+  }
+  const MAX_POLLS = 30;
   for (let i = 0; i < MAX_POLLS; i++) {
     await _sleep(1000);
-    const result = await get<IceResponse>({
+    const result = await get<{ exchangeResponse: string }>({
       url: `/v5/sessions/cloud/${sessionId}/ice`,
       credentialType,
     });
+    log('stream_store: ICE GET poll', i, 'status:', result.statusCode);
     if (result.statusCode === 204) {
       continue;
     }
     if (result.err) {
-      errorLog(
-        'stream_store: ice_exchange_failed',
-        result.statusCode,
-        result.text
-      );
-      throw new Error(`ice_exchange_failed: ${result.statusCode}`);
+      errorLog('stream_store: ice GET failed', result.statusCode, result.text);
+      continue;
     }
-    const parsed = JSON.parse(result.body.exchangeResponse) as {
-      candidates?: IceCandidate[];
-    };
-    if (parsed.candidates && parsed.candidates.length > 0) {
-      log('stream_store: Got', parsed.candidates.length, 'ICE candidates');
-      return parsed.candidates.map((c) => ({
-        candidate: c.candidate,
-        sdpMLineIndex: c.sdpMLineIndex,
-        sdpMid: c.sdpMid,
-      }));
+    log('stream_store: ICE GET body:', JSON.stringify(result.body));
+    const parsed = JSON.parse(result.body.exchangeResponse) as Array<{
+      candidate: string;
+      sdpMid: string;
+      sdpMLineIndex: number;
+      messageType: string;
+    }>;
+    const candidates = parsed.filter(
+      (c) => c.candidate !== 'a=end-of-candidates'
+    );
+    if (candidates.length > 0) {
+      log('stream_store: Got', candidates.length, 'remote ICE candidates');
+      for (const c of candidates) {
+        log('stream_store: Adding remote candidate:', c.candidate);
+        try {
+          await g_pc.addIceCandidate({
+            candidate: c.candidate,
+            sdpMid: c.sdpMid,
+            sdpMLineIndex: c.sdpMLineIndex,
+          });
+        } catch (e) {
+          errorLog(
+            'stream_store: addIceCandidate failed:',
+            e instanceof Error ? e.message : e,
+            c.candidate
+          );
+        }
+      }
+      return;
     }
   }
-  errorLog('stream_store: ice_exchange_timeout after', MAX_POLLS, 'attempts');
-  throw new Error('ice_exchange_timeout');
+  errorLog('stream_store: remote ICE poll timeout');
+}
+
+const ACCESS_KEY = '4BDB3609-C1F1-4195-9B37-FEFF45DA8B8E';
+
+function _setupDataChannels(pc: RTCPeerConnection): void {
+  log('stream_store: Creating data channels');
+  const messageChannel = pc.createDataChannel('message', {
+    protocol: 'messageV1',
+    ordered: true,
+  });
+  const controlChannel = pc.createDataChannel('control', {
+    protocol: 'controlV1',
+    ordered: true,
+  });
+  const inputChannel = pc.createDataChannel('input', {
+    protocol: '1.0',
+    ordered: true,
+  });
+  const chatChannel = pc.createDataChannel('chat', {
+    protocol: 'chatV1',
+    ordered: true,
+  });
+
+  messageChannel.onopen = () => {
+    log('stream_store: message channel open, sending handshake');
+    const handshake = JSON.stringify({
+      type: 'Handshake',
+      version: 'messageV1',
+      id: 'be0bfc6d-1e83-4c8a-90ed-fa8601c5a179',
+      cv: '0',
+    });
+    messageChannel.send(new TextEncoder().encode(handshake));
+  };
+  messageChannel.onclose = () => {
+    errorLog('stream_store: message channel closed');
+  };
+  messageChannel.onmessage = (event: { data: ArrayBuffer | string }) => {
+    const text =
+      typeof event.data === 'string'
+        ? event.data
+        : new TextDecoder().decode(event.data);
+    const msg = JSON.parse(text) as { type: string };
+    log('stream_store: message channel recv:', msg.type);
+
+    if (msg.type === 'HandshakeAck') {
+      log('stream_store: message handshake complete, sending auth + config');
+      _sendControlAuth(controlChannel);
+      _sendMessageConfig(messageChannel);
+    }
+  };
+  messageChannel.onerror = (event: unknown) => {
+    errorLog('stream_store: message channel error:', event);
+  };
+
+  controlChannel.onopen = () => {
+    log('stream_store: control channel open');
+  };
+  controlChannel.onclose = () => {
+    errorLog('stream_store: control channel closed');
+  };
+  controlChannel.onmessage = (event: { data: ArrayBuffer | string }) => {
+    const text =
+      typeof event.data === 'string'
+        ? event.data
+        : new TextDecoder().decode(event.data);
+    log('stream_store: control channel recv:', text);
+  };
+  controlChannel.onerror = (event: unknown) => {
+    errorLog('stream_store: control channel error:', event);
+  };
+
+  inputChannel.onopen = () => {
+    log('stream_store: input channel open');
+  };
+  inputChannel.onclose = () => {
+    errorLog('stream_store: input channel closed');
+  };
+  inputChannel.onerror = (event: unknown) => {
+    errorLog('stream_store: input channel error:', event);
+  };
+
+  chatChannel.onopen = () => {
+    log('stream_store: chat channel open');
+  };
+  chatChannel.onclose = () => {
+    errorLog('stream_store: chat channel closed');
+  };
+  chatChannel.onerror = (event: unknown) => {
+    errorLog('stream_store: chat channel error:', event);
+  };
+}
+
+function _sendControlAuth(channel: { send: (data: Uint8Array) => void }) {
+  const auth = JSON.stringify({
+    message: 'authorizationRequest',
+    accessKey: ACCESS_KEY,
+  });
+  channel.send(new TextEncoder().encode(auth));
+  log('stream_store: sent control auth');
+
+  const gamepad = JSON.stringify({
+    message: 'gamepadChanged',
+    gamepadIndex: 0,
+    wasAdded: true,
+  });
+  channel.send(new TextEncoder().encode(gamepad));
+  log('stream_store: sent gamepad added');
+}
+
+function _sendMessageConfig(channel: { send: (data: Uint8Array) => void }) {
+  function sendMsg(target: string, content: object) {
+    const msg = JSON.stringify({
+      type: 'Message',
+      content: JSON.stringify(content),
+      id: _uuid(),
+      target,
+      cv: '',
+    });
+    channel.send(new TextEncoder().encode(msg));
+  }
+
+  sendMsg('/streaming/systemUi/configuration', {
+    version: [0, 2, 0],
+    systemUis: [],
+  });
+  sendMsg('/streaming/properties/clientappinstallidchanged', {
+    clientAppInstallId: 'c97d7ee0-73b2-4239-bf1d-9d805a338429',
+  });
+  sendMsg('/streaming/characteristics/orientationchanged', { orientation: 0 });
+  sendMsg('/streaming/characteristics/touchinputenabledchanged', {
+    touchInputEnabled: false,
+  });
+  sendMsg('/streaming/characteristics/clientdevicecapabilities', {});
+  sendMsg('/streaming/characteristics/dimensionschanged', {
+    horizontal: 1920,
+    vertical: 1080,
+    preferredWidth: 1920,
+    preferredHeight: 1080,
+    safeAreaLeft: 0,
+    safeAreaTop: 0,
+    safeAreaRight: 1920,
+    safeAreaBottom: 1080,
+    supportsCustomResolution: true,
+  });
+  log('stream_store: sent message config');
 }
 
 function _startKeepalive(
@@ -463,6 +665,13 @@ function _startKeepalive(
 
 function _sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function _uuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 
 export default {

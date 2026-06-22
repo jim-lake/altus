@@ -4,6 +4,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
+    "types": ["react-native"],
     "lib": [
       "es2019",
       "es2020.bigint",
@@ -39,6 +40,6 @@
     "forceConsistentCasingInFileNames": false,
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["**/node_modules", "**/Pods/**"]
 }

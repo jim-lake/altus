@@ -27,6 +27,7 @@ export default [
       'metro-cache/**',
       '*.bundle.js',
       '*.bundle.js.map',
+      'tsconfig*.json',
     ],
   },
   // Apply recommended config only to source files
@@ -328,6 +329,19 @@ export default [
       'no-console': 'off',
       '@typescript-eslint/no-var-requires': 'off',
       'import/no-extraneous-dependencies': 'off',
+    },
+  },
+
+  // Test files - use test tsconfig with Node types
+  {
+    files: ['tests/**/*.ts'],
+    languageOptions: {
+      parser: typescriptParser,
+      parserOptions: {
+        ecmaVersion: 2024,
+        sourceType: 'module',
+        project: './tsconfig.test.json',
+      },
     },
   },
 ];

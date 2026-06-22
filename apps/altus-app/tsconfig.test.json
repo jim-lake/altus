@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["react-native", "node"], "noEmit": true },
+  "include": ["tests/**/*.ts", "src/**/*.ts", "src/**/*.tsx"]
+}
