@@ -19,13 +19,13 @@ import { useLatestCallback } from '@/tools/latest_callback';
 
 import type { Console, Title } from '@/lib/xcloud_api';
 
-const TILE_GAP = 12;
 const TARGET_TILE_WIDTH = 200;
 const ROW_HORIZONTAL_PADDING = 20;
+const TILE_MARGIN = 5;
 
 const styles = StyleSheet.create({
   container: { backgroundColor: 'var(--bg-color)', flex: 1 },
-  content: { padding: 32 },
+  content: { padding: 0 },
   empty: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   logout: { marginTop: 32 },
   row: {
     flexDirection: 'row',
-    marginBottom: TILE_GAP,
+    marginBottom: TILE_MARGIN * 2,
     paddingHorizontal: ROW_HORIZONTAL_PADDING,
   },
   sectionHeader: {
@@ -42,10 +42,17 @@ const styles = StyleSheet.create({
     color: 'var(--text-color)',
     fontSize: 20,
     fontWeight: 'bold',
+    marginLeft: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
+    marginTop: 16,
     paddingBottom: 12,
     paddingTop: 24,
   },
-  spacer: { flex: 1, marginHorizontal: 5 },
+  showMoreButton: {
+    marginBottom: 10,
+    marginLeft: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
+  },
+  spacer: { flex: 1, marginHorizontal: TILE_MARGIN },
+  tile: { flex: 1, marginHorizontal: TILE_MARGIN },
 });
 
 type RowItem =
@@ -70,7 +77,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 export default function HomeScreen() {
   const s = useStyles(styles);
   const [contentWidth, setContentWidth] = useState(
-    Dimensions.get('window').width - 64
+    Dimensions.get('window').width
   );
   const consoles = useConsoleList();
   const latestGames = useLatestList();
@@ -79,7 +86,7 @@ export default function HomeScreen() {
 
   const onLayout = useCallback(
     (e: { nativeEvent: { layout: { width: number } } }) => {
-      setContentWidth(e.nativeEvent.layout.width - 64);
+      setContentWidth(e.nativeEvent.layout.width);
     },
     []
   );
@@ -174,6 +181,7 @@ export default function HomeScreen() {
         if (item.type === 'showMore') {
           return (
             <TextButton
+              style={s.showMoreButton}
               text='Show More'
               type='ghost'
               onPress={() => {
@@ -187,7 +195,7 @@ export default function HomeScreen() {
           return (
             <View style={s.row}>
               {item.items.map((c) => (
-                <ConsoleTile key={c.serverId} console={c} />
+                <ConsoleTile key={c.serverId} style={s.tile} console={c} />
               ))}
               {Array.from({ length: spacers }, (_, i) => (
                 <View key={`sp-${i}`} style={s.spacer} />
@@ -199,7 +207,7 @@ export default function HomeScreen() {
         return (
           <View style={s.row}>
             {item.items.map((t) => (
-              <GameTile key={t.titleId} title={t} />
+              <GameTile key={t.titleId} style={s.tile} title={t} />
             ))}
             {Array.from({ length: spacers }, (_, i) => (
               <View key={`sp-${i}`} style={s.spacer} />
