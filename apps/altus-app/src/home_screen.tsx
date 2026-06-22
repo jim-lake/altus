@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, SectionList, Text, View } from 'react-native';
+import { Alert, Dimensions, SectionList, Text, View } from 'react-native';
 
 import TextButton from '@/components/buttons/text_button';
 import ConsoleTile from '@/components/console_tile';
@@ -100,8 +100,11 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
     void fetchGames();
   }, []);
 
-  const handleLogout = useLatestCallback(async () => {
-    await logout();
+  const handleLogout = useLatestCallback(() => {
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: () => void logout() },
+    ]);
   });
 
   const filteredGames = useSearchResult(games, gameSearch);
