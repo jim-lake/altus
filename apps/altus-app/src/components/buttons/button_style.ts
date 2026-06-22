@@ -62,11 +62,11 @@ export const baseStyles = StyleSheet.create({
     backgroundColor: 'var(--button-bg)',
     borderRadius: 10,
     flexDirection: 'row',
-    height: 44,
+    height: 40,
     justifyContent: 'center',
     overflow: 'visible',
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingLeft: 15,
+    paddingRight: 15,
   },
 });
 

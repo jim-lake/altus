@@ -31,6 +31,8 @@ const styles = StyleSheet.create({
   empty: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
+    marginBottom: 10,
+    marginLeft: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
     paddingVertical: 8,
   },
   homeScreen: { backgroundColor: 'var(--bg-color)', flex: 1 },
@@ -40,8 +42,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: ROW_HORIZONTAL_PADDING,
   },
   sectionHeaderRow: {
+    paddingBottom: 10,
     paddingLeft: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
     paddingRight: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
+    paddingTop: 10,
   },
   showMoreButton: {
     marginBottom: 10,

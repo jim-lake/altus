@@ -14,6 +14,49 @@ interface Props {
   style?: ViewStyle;
 }
 
+const styles = StyleSheet.create({
+  clearButton: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    width: 20,
+  },
+  clearText: { color: 'var(--secondary-text-color)', fontSize: 14 },
+  searchInput: {
+    color: 'var(--text-color)',
+    flex: 1,
+    fontSize: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+  },
+  searchRow: {
+    alignItems: 'center',
+    backgroundColor: 'var(--search-bg)',
+    borderColor: 'var(--search-border)',
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginLeft: 20,
+    maxWidth: 500,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  title: {
+    backgroundColor: 'var(--bg-color)',
+    color: 'var(--text-color)',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+});
+
 export default function SectionHeader({
   text,
   buttonText,
@@ -57,34 +100,3 @@ export default function SectionHeader({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  clearButton: { marginLeft: 4 },
-  clearText: { color: 'var(--secondary-text-color)', fontSize: 14 },
-  searchInput: {
-    borderColor: 'var(--border-color)',
-    borderRadius: 6,
-    borderWidth: 1,
-    color: 'var(--text-color)',
-    fontSize: 14,
-    height: 28,
-    paddingHorizontal: 8,
-    width: 180,
-  },
-  searchRow: { alignItems: 'center', flexDirection: 'row' },
-  sectionHeader: {
-    alignItems: 'center',
-    backgroundColor: 'var(--bg-color)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  title: {
-    backgroundColor: 'var(--bg-color)',
-    color: 'var(--text-color)',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 16,
-    paddingBottom: 12,
-    paddingTop: 24,
-  },
-});
