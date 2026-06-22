@@ -27,10 +27,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   image: {
+    backgroundColor: 'black',
     height: '100%',
     position: 'absolute',
     width: '100%',
-    backgroundColor: 'black',
   },
 });
 
