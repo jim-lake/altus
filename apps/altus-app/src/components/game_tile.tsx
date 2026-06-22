@@ -26,7 +26,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  image: { height: '100%', position: 'absolute', width: '100%', backgroundColor: 'black' },
+  image: {
+    height: '100%',
+    position: 'absolute',
+    width: '100%',
+    backgroundColor: 'black',
+  },
 });
 
 interface Props {
@@ -50,7 +55,11 @@ export default function GameTile({ title, style }: Props) {
         {product?.productTitle ?? title.titleId}
       </Text>
       {imageUri ? (
-        <Image source={{ uri: imageUri }} style={s.image} resizeMode='contain' />
+        <Image
+          source={{ uri: imageUri }}
+          style={s.image}
+          resizeMode='contain'
+        />
       ) : null}
     </View>
   );
