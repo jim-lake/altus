@@ -24,12 +24,22 @@ export interface Title {
   details: {
     productId: string;
     xboxTitleId: number;
-    supportedTabs: string[];
+    hasEntitlement: boolean;
+    supportsInAppPurchases: boolean;
+    isFreeInStore: boolean;
+    maxSessionLengthInSeconds: number;
+    supportedTabs: string[] | null;
     supportedInputTypes: string[];
-    programs: Array<{ programId: string }>;
-    userPrograms: Array<{ programId: string }>;
+    programs: string[];
+    userPrograms: string[];
+    userSubscriptions: string[];
+    earlyAccessProductIds: string[];
     maxGamepass: boolean;
   };
+}
+
+export function isTitlePlayable(title: Title): boolean {
+  return title.details.userPrograms.length > 0 || title.details.hasEntitlement;
 }
 
 interface TitlesResponse {

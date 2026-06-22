@@ -6,6 +6,7 @@ import ConsoleTile from '@/components/console_tile';
 import GameTile from '@/components/game_tile';
 import SectionHeader from '@/components/section_header';
 import { StyleSheet, useStyles } from '@/components/theme_style';
+import { isTitlePlayable } from '@/lib/xcloud_api';
 import {
   fetch as fetchConsoles,
   useList as useConsoleList,
@@ -136,28 +137,41 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
                 : []),
             ];
 
+    const playable = filteredGames?.filter(isTitlePlayable) ?? null;
+    const unplayable =
+      filteredGames?.filter((t) => !isTitlePlayable(t)) ?? null;
+
     const gameSectionData: RowItem[] =
-      filteredGames === null
+      playable === null
         ? [{ key: 'g-empty', type: 'empty', message: 'Loading...' }]
-        : filteredGames.length === 0
+        : playable.length === 0
           ? [
               {
                 key: 'g-none',
                 type: 'empty',
-                message: 'No cloud games available',
+                message: 'No playable cloud games available',
               },
             ]
-          : chunkArray(filteredGames, cols).map((items, i) => ({
+          : chunkArray(playable, cols).map((items, i) => ({
               key: `g-${i}`,
               type: 'games',
               items,
             }));
 
-    return [
+    const result: Section[] = [
       { title: 'Your Consoles', data: consoleSectionData },
       { title: 'Continue Playing', data: latestSectionData },
-      { title: 'Cloud Games', data: gameSectionData },
+      { title: 'Cloud Playable Games', data: gameSectionData },
     ];
+
+    if (unplayable && unplayable.length > 0) {
+      const allGamesData: RowItem[] = chunkArray(unplayable, cols).map(
+        (items, i) => ({ key: `a-${i}`, type: 'games', items })
+      );
+      result.push({ title: 'All Games', data: allGamesData });
+    }
+
+    return result;
   }, [consoles, cols, latestGames, filteredGames, moreLatestGames]);
 
   return (
@@ -177,9 +191,11 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
             section.title === 'Your Consoles' ? handleLogout : undefined
           }
           onSearchChange={
-            section.title === 'Cloud Games' ? setGameSearch : undefined
+            section.title === 'Cloud Playable Games' ? setGameSearch : undefined
           }
-          searchValue={section.title === 'Cloud Games' ? gameSearch : undefined}
+          searchValue={
+            section.title === 'Cloud Playable Games' ? gameSearch : undefined
+          }
         />
       )}
       renderItem={({ item }) => {
