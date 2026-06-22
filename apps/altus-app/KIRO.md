@@ -129,13 +129,14 @@ objectWrap: 'collapse';
 
 ## Scripts
 
-| Command            | Purpose                         |
-| ------------------ | ------------------------------- |
-| `npm run lint`     | ESLint with auto-fix            |
-| `npm run pretty`   | Prettier format                 |
-| `npm run ts:check` | TypeScript type check (no emit) |
-| `npm test`         | Unit tests via `tsx --test`     |
-| `npm run mac`      | Run on macOS                    |
+| Command                              | Purpose                         |
+| ------------------------------------ | ------------------------------- |
+| `npm run lint`                       | ESLint with auto-fix            |
+| `npm run pretty`                     | Prettier format                 |
+| `npm run ts:check`                   | TypeScript type check (no emit) |
+| `npm test`                           | All unit tests via `tsx --test` |
+| `npm run test:unit:single -- <file>` | Run a single test file          |
+| `npm run mac`                        | Run on macOS                    |
 
 ## Testing
 

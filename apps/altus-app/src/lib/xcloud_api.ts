@@ -41,6 +41,7 @@ export async function getConsoles(): Promise<Console[]> {
   log('xcloud_api: Fetching consoles');
   const result: RequestResponse<ConsolesResponse> = await get({
     url: '/v6/servers/home',
+    credentialType: 'xHome',
   });
   if (result.err) {
     errorLog(
@@ -59,6 +60,7 @@ export async function getTitles(): Promise<Title[]> {
   log('xcloud_api: Fetching titles');
   const result: RequestResponse<TitlesResponse> = await get({
     url: '/v2/titles',
+    credentialType: 'xgpuweb',
   });
   if (result.err) {
     errorLog(
@@ -78,6 +80,7 @@ export async function getRecentTitles(): Promise<Title[]> {
   const result: RequestResponse<TitlesResponse> = await get({
     url: '/v2/titles/mru',
     query: { mr: 25 },
+    credentialType: 'xgpuweb',
   });
   if (result.err) {
     errorLog(

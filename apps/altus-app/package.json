@@ -15,6 +15,7 @@
     "pretty": "prettier -u --write *",
     "start": "react-native start",
     "test": "npx tsx --test tests/unit/*.test.ts",
+    "test:unit:single": "npx tsx --test",
     "ts:check": "tsc --noEmit"
   },
   "dependencies": {
@@ -40,6 +41,7 @@
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
     "babel-plugin-module-resolver": "^5.0.3",
+    "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",

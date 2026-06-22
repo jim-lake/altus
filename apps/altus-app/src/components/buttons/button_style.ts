@@ -58,12 +58,15 @@ export const baseStyles = StyleSheet.create({
   text: { color: 'var(--button-text-color)', fontSize: 17 },
   textButton: {
     alignItems: 'center',
+    alignSelf: 'flex-start',
     backgroundColor: 'var(--button-bg)',
     borderRadius: 10,
     flexDirection: 'row',
     height: 44,
     justifyContent: 'center',
     overflow: 'visible',
+    paddingLeft: 10,
+    paddingRight: 10,
   },
 });
 

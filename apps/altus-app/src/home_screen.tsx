@@ -1,94 +1,220 @@
-import React, { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Dimensions, SectionList, Text, View } from 'react-native';
 
 import TextButton from '@/components/buttons/text_button';
+import ConsoleTile from '@/components/console_tile';
+import GameTile from '@/components/game_tile';
 import { StyleSheet, useStyles } from '@/components/theme_style';
-import { fetch as fetchConsoles, useList } from '@/stores/console_store';
+import {
+  fetch as fetchConsoles,
+  useList as useConsoleList,
+} from '@/stores/console_store';
+import {
+  fetch as fetchGames,
+  useLatestList,
+  useList as useGameList,
+} from '@/stores/game_store';
 import { logout } from '@/stores/user_store';
 import { useLatestCallback } from '@/tools/latest_callback';
 
+import type { Console, Title } from '@/lib/xcloud_api';
+
+const TILE_GAP = 12;
+const TARGET_TILE_WIDTH = 200;
+const ROW_HORIZONTAL_PADDING = 20;
+
 const styles = StyleSheet.create({
-  consoleDetail: {
-    color: 'var(--secondary-text-color)',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  consoleName: { color: 'var(--text-color)', fontSize: 16, fontWeight: '600' },
-  consoleRow: {
-    borderBottomColor: 'var(--form-box-border)',
-    borderBottomWidth: 1,
-    paddingVertical: 12,
-  },
-  container: {
-    backgroundColor: 'var(--bg-color)',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 32,
-  },
+  container: { backgroundColor: 'var(--bg-color)', flex: 1 },
+  content: { padding: 32 },
   empty: {
     color: 'var(--secondary-text-color)',
     fontSize: 14,
-    marginTop: 32,
-    textAlign: 'center',
+    paddingVertical: 8,
   },
   logout: { marginTop: 32 },
-  title: {
-    color: 'var(--text-color)',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  row: {
+    flexDirection: 'row',
+    marginBottom: TILE_GAP,
+    paddingHorizontal: ROW_HORIZONTAL_PADDING,
   },
+  sectionHeader: {
+    backgroundColor: 'var(--bg-color)',
+    color: 'var(--text-color)',
+    fontSize: 20,
+    fontWeight: 'bold',
+    paddingBottom: 12,
+    paddingTop: 24,
+  },
+  spacer: { flex: 1, marginHorizontal: 5 },
 });
+
+type RowItem =
+  | { key: string; type: 'consoles'; items: Console[] }
+  | { key: string; type: 'games'; items: Title[] }
+  | { key: string; type: 'empty'; message: string }
+  | { key: string; type: 'showMore' };
+
+interface Section {
+  title: string;
+  data: RowItem[];
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    rows.push(arr.slice(i, i + size));
+  }
+  return rows;
+}
 
 export default function HomeScreen() {
   const s = useStyles(styles);
-  const consoles = useList();
+  const [contentWidth, setContentWidth] = useState(
+    Dimensions.get('window').width - 64
+  );
+  const consoles = useConsoleList();
+  const latestGames = useLatestList();
+  const games = useGameList();
+  const [moreLatestGames, setMoreLatestGames] = useState(false);
+
+  const onLayout = useCallback(
+    (e: { nativeEvent: { layout: { width: number } } }) => {
+      setContentWidth(e.nativeEvent.layout.width - 64);
+    },
+    []
+  );
+
+  const cols = Math.max(1, Math.floor(contentWidth / TARGET_TILE_WIDTH));
 
   useEffect(() => {
     void fetchConsoles();
+    void fetchGames();
   }, []);
 
   const handleLogout = useLatestCallback(async () => {
     await logout();
   });
 
-  if (consoles === null) {
-    return (
-      <View style={s.container}>
-        <Text selectable style={s.empty}>
-          {'Loading...'}
-        </Text>
-      </View>
-    );
-  }
+  const sections: Section[] = useMemo(() => {
+    const consoleSectionData: RowItem[] =
+      consoles === null
+        ? [{ key: 'c-empty', type: 'empty', message: 'Loading...' }]
+        : consoles.length === 0
+          ? [{ key: 'c-none', type: 'empty', message: 'No consoles found' }]
+          : chunkArray(consoles, cols).map((items, i) => ({
+              key: `c-${i}`,
+              type: 'consoles',
+              items,
+            }));
+
+    const visibleLatest = latestGames
+      ? moreLatestGames
+        ? latestGames
+        : latestGames.slice(0, cols)
+      : null;
+    const latestSectionData: RowItem[] =
+      visibleLatest === null
+        ? [{ key: 'l-empty', type: 'empty', message: 'Loading...' }]
+        : visibleLatest.length === 0
+          ? [{ key: 'l-none', type: 'empty', message: 'No recent games' }]
+          : [
+              ...chunkArray(visibleLatest, cols).map(
+                (items, i): RowItem => ({ key: `l-${i}`, type: 'games', items })
+              ),
+              ...(!moreLatestGames && latestGames && latestGames.length > cols
+                ? [{ key: 'l-more', type: 'showMore' } as RowItem]
+                : []),
+            ];
+
+    const gameSectionData: RowItem[] =
+      games === null
+        ? [{ key: 'g-empty', type: 'empty', message: 'Loading...' }]
+        : games.length === 0
+          ? [
+              {
+                key: 'g-none',
+                type: 'empty',
+                message: 'No cloud games available',
+              },
+            ]
+          : chunkArray(games, cols).map((items, i) => ({
+              key: `g-${i}`,
+              type: 'games',
+              items,
+            }));
+
+    return [
+      { title: 'Your Consoles', data: consoleSectionData },
+      { title: 'Continue Playing', data: latestSectionData },
+      { title: 'Cloud Games', data: gameSectionData },
+    ];
+  }, [consoles, cols, latestGames, games, moreLatestGames]);
 
   return (
-    <View style={s.container}>
-      <Text selectable style={s.title}>
-        {'Your Consoles'}
-      </Text>
-      {consoles.length === 0 ? (
-        <Text selectable style={s.empty}>
-          {'No consoles found'}
+    <SectionList
+      style={s.container}
+      contentContainerStyle={s.content}
+      onLayout={onLayout}
+      sections={sections}
+      stickySectionHeadersEnabled={false}
+      keyExtractor={(item) => item.key}
+      renderSectionHeader={({ section }) => (
+        <Text selectable style={s.sectionHeader}>
+          {section.title}
         </Text>
-      ) : (
-        consoles.map((c) => (
-          <View key={c.serverId} style={s.consoleRow}>
-            <Text selectable style={s.consoleName}>
-              {c.deviceName}
-            </Text>
-            <Text selectable style={s.consoleDetail}>
-              {`${c.consoleType} • ${c.powerState}`}
-            </Text>
-          </View>
-        ))
       )}
-      <TextButton
-        text='Log Out'
-        type='danger'
-        onPress={handleLogout}
-        style={s.logout}
-      />
-    </View>
+      renderItem={({ item }) => {
+        if (item.type === 'empty') {
+          return (
+            <Text selectable style={s.empty}>
+              {item.message}
+            </Text>
+          );
+        }
+        if (item.type === 'showMore') {
+          return (
+            <TextButton
+              text='Show More'
+              type='ghost'
+              onPress={() => {
+                setMoreLatestGames(true);
+              }}
+            />
+          );
+        }
+        if (item.type === 'consoles') {
+          const spacers = cols - item.items.length;
+          return (
+            <View style={s.row}>
+              {item.items.map((c) => (
+                <ConsoleTile key={c.serverId} console={c} />
+              ))}
+              {Array.from({ length: spacers }, (_, i) => (
+                <View key={`sp-${i}`} style={s.spacer} />
+              ))}
+            </View>
+          );
+        }
+        const spacers = cols - item.items.length;
+        return (
+          <View style={s.row}>
+            {item.items.map((t) => (
+              <GameTile key={t.titleId} title={t} />
+            ))}
+            {Array.from({ length: spacers }, (_, i) => (
+              <View key={`sp-${i}`} style={s.spacer} />
+            ))}
+          </View>
+        );
+      }}
+      ListFooterComponent={
+        <TextButton
+          text='Log Out'
+          type='danger'
+          onPress={handleLogout}
+          style={s.logout}
+        />
+      }
+    />
   );
 }

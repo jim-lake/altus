@@ -12,7 +12,7 @@ import api from '@/tools/api';
 import { errorLog, log } from '@/tools/log';
 import Storage from '@/tools/storage';
 
-import type { DeviceCodeResponse } from '@/lib/auth';
+import type { DeviceCodeResponse, StreamingTokenResponse } from '@/lib/auth';
 import type { RequestParams, RequestResponse } from '@/tools/api';
 
 export interface SavedToken {
@@ -21,15 +21,23 @@ export interface SavedToken {
   expires_at: number;
 }
 
+export interface StreamingToken {
+  token: string;
+  expiresAt: number;
+  baseUri: string;
+  type: 'xHome' | 'xgpuweb' | 'xgpuwebf2p';
+}
+
+export type CredentialType = 'xHome' | 'xgpuweb';
+
 const TOKEN_KEY = 'ALTUS_TOKEN_KEY';
 
 let g_isReady = false;
 let g_accessToken = '';
 let g_refreshToken = '';
 let g_expiresAt = 0;
-let g_baseUri = '';
-let g_streamToken = '';
-let g_streamExpiresAt = 0;
+let g_xHome: StreamingToken | null = null;
+let g_xGpuWeb: StreamingToken | null = null;
 let g_pollAbort: (() => void) | null = null;
 
 const g_eventEmitter = new EventEmitter();
@@ -59,7 +67,7 @@ export function useIsReady() {
   return useSyncExternalStore(addListener, () => g_isReady);
 }
 export function isLoggedIn() {
-  return Boolean(g_streamToken);
+  return Boolean(g_xHome);
 }
 export function useIsLoggedIn() {
   return useSyncExternalStore(addListener, isLoggedIn);
@@ -69,6 +77,34 @@ export function getAccessToken(): string {
 }
 export function getRefreshToken(): string {
   return g_refreshToken;
+}
+
+function _applyStreamingTokens(tokens: {
+  xHomeToken: StreamingTokenResponse | null;
+  xCloudToken: StreamingTokenResponse | null;
+}) {
+  if (tokens.xHomeToken) {
+    const region =
+      tokens.xHomeToken.offeringSettings.regions.find((r) => r.isDefault) ??
+      tokens.xHomeToken.offeringSettings.regions[0];
+    g_xHome = {
+      token: tokens.xHomeToken.gsToken,
+      expiresAt: Date.now() + tokens.xHomeToken.durationInSeconds * 1000,
+      baseUri: region?.baseUri ?? '',
+      type: 'xHome',
+    };
+  }
+  if (tokens.xCloudToken) {
+    const region =
+      tokens.xCloudToken.offeringSettings.regions.find((r) => r.isDefault) ??
+      tokens.xCloudToken.offeringSettings.regions[0];
+    g_xGpuWeb = {
+      token: tokens.xCloudToken.gsToken,
+      expiresAt: Date.now() + tokens.xCloudToken.durationInSeconds * 1000,
+      baseUri: region?.baseUri ?? '',
+      type: tokens.xCloudToken.market ? 'xgpuweb' : 'xgpuwebf2p',
+    };
+  }
 }
 
 export interface StartLoginResult {
@@ -98,18 +134,7 @@ export async function startLogin(): Promise<StartLoginResult> {
         g_refreshToken = tokenResp.refresh_token;
         g_expiresAt = Date.now() + tokenResp.expires_in * 1000;
         const tokens = await getStreamingTokens(g_accessToken);
-        if (tokens.xHomeToken) {
-          const region =
-            tokens.xHomeToken.offeringSettings.regions.find(
-              (r) => r.isDefault
-            ) ?? tokens.xHomeToken.offeringSettings.regions[0];
-          if (region) {
-            g_baseUri = region.baseUri;
-          }
-          g_streamToken = tokens.xHomeToken.gsToken;
-          g_streamExpiresAt =
-            Date.now() + tokens.xHomeToken.durationInSeconds * 1000;
-        }
+        _applyStreamingTokens(tokens);
         await _save();
         log('user_store: Login complete');
         _emit('login');
@@ -146,9 +171,8 @@ export async function logout(): Promise<void> {
   g_accessToken = '';
   g_refreshToken = '';
   g_expiresAt = 0;
-  g_baseUri = '';
-  g_streamToken = '';
-  g_streamExpiresAt = 0;
+  g_xHome = null;
+  g_xGpuWeb = null;
   await _save();
   _emit('logout');
 }
@@ -184,26 +208,15 @@ async function _verifyToken() {
       g_expiresAt = Date.now() + tokenResp.expires_in * 1000;
     }
     const tokens = await getStreamingTokens(g_accessToken);
-    if (tokens.xHomeToken) {
-      const region =
-        tokens.xHomeToken.offeringSettings.regions.find((r) => r.isDefault) ??
-        tokens.xHomeToken.offeringSettings.regions[0];
-      if (region) {
-        g_baseUri = region.baseUri;
-      }
-      g_streamToken = tokens.xHomeToken.gsToken;
-      g_streamExpiresAt =
-        Date.now() + tokens.xHomeToken.durationInSeconds * 1000;
-    }
+    _applyStreamingTokens(tokens);
     await _save();
   } catch {
     errorLog('user_store: Token verify failed, clearing session');
     g_accessToken = '';
     g_refreshToken = '';
     g_expiresAt = 0;
-    g_baseUri = '';
-    g_streamToken = '';
-    g_streamExpiresAt = 0;
+    g_xHome = null;
+    g_xGpuWeb = null;
     await _save();
   }
 }
@@ -226,16 +239,23 @@ const DEVICE_INFO = JSON.stringify({
   },
 });
 
-function _resolveUrl(url: string): string {
+function _getCredential(credentialType: CredentialType): StreamingToken | null {
+  return credentialType === 'xHome' ? g_xHome : g_xGpuWeb;
+}
+
+function _resolveUrl(url: string, credential: StreamingToken): string {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  return g_baseUri + url;
+  return credential.baseUri + url;
 }
 
-async function _ensureStreamToken(): Promise<void> {
-  if (g_streamToken && g_streamExpiresAt > Date.now() + 60_000) {
-    return;
+async function _ensureStreamToken(
+  credentialType: CredentialType
+): Promise<StreamingToken> {
+  const existing = _getCredential(credentialType);
+  if (existing && existing.expiresAt > Date.now() + 60_000) {
+    return existing;
   }
   if (!g_accessToken) {
     throw new Error('not_logged_in');
@@ -248,51 +268,54 @@ async function _ensureStreamToken(): Promise<void> {
     await _save();
   }
   const tokens = await getStreamingTokens(g_accessToken);
-  if (tokens.xHomeToken) {
-    const region =
-      tokens.xHomeToken.offeringSettings.regions.find((r) => r.isDefault) ??
-      tokens.xHomeToken.offeringSettings.regions[0];
-    if (region) {
-      g_baseUri = region.baseUri;
-    }
-    g_streamToken = tokens.xHomeToken.gsToken;
-    g_streamExpiresAt = Date.now() + tokens.xHomeToken.durationInSeconds * 1000;
+  _applyStreamingTokens(tokens);
+  const credential = _getCredential(credentialType);
+  if (!credential) {
+    throw new Error(`no_credential_${credentialType}`);
   }
+  return credential;
 }
 
-async function _prepareParams(params: RequestParams): Promise<RequestParams> {
-  await _ensureStreamToken();
-  params.url = _resolveUrl(params.url);
+export interface AuthenticatedRequestParams extends RequestParams {
+  credentialType: CredentialType;
+}
+
+async function _prepareParams(
+  params: AuthenticatedRequestParams
+): Promise<RequestParams> {
+  const credential = await _ensureStreamToken(params.credentialType);
+  const prepared: RequestParams = { ...params };
+  prepared.url = _resolveUrl(params.url, credential);
   const authHeaders: Record<string, string> = {
-    authorization: `Bearer ${g_streamToken}`,
+    authorization: `Bearer ${credential.token}`,
     'x-gssv-client': 'XboxComBrowser',
     'x-ms-device-info': DEVICE_INFO,
   };
-  if (params.headers) {
-    params.headers = { ...authHeaders, ...params.headers };
+  if (prepared.headers) {
+    prepared.headers = { ...authHeaders, ...prepared.headers };
   } else {
-    params.headers = authHeaders;
+    prepared.headers = authHeaders;
   }
-  return params;
+  return prepared;
 }
 
 export async function get<T>(
-  params: RequestParams
+  params: AuthenticatedRequestParams
 ): Promise<RequestResponse<T>> {
   return api.get<T>(await _prepareParams(params));
 }
 export async function put<T>(
-  params: RequestParams
+  params: AuthenticatedRequestParams
 ): Promise<RequestResponse<T>> {
   return api.put<T>(await _prepareParams(params));
 }
 export async function post<T>(
-  params: RequestParams
+  params: AuthenticatedRequestParams
 ): Promise<RequestResponse<T>> {
   return api.post<T>(await _prepareParams(params));
 }
 export async function del<T>(
-  params: RequestParams
+  params: AuthenticatedRequestParams
 ): Promise<RequestResponse<T>> {
   return api.del<T>(await _prepareParams(params));
 }

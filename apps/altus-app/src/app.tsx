@@ -5,6 +5,8 @@ import { StyleSheet, useStyles } from '@/components/theme_style';
 import HomeScreen from '@/home_screen';
 import LoginScreen from '@/login_screen';
 import ConsoleStore from '@/stores/console_store';
+import GameStore from '@/stores/game_store';
+import ProductStore from '@/stores/product_store';
 import UserStore, { useIsLoggedIn, useIsReady } from '@/stores/user_store';
 import { herdOnce } from '@/tools/herd';
 
@@ -27,6 +29,8 @@ const styles = StyleSheet.create({
 const _startup = herdOnce(async () => {
   await UserStore.init();
   ConsoleStore.init();
+  GameStore.init();
+  await ProductStore.init();
 });
 
 export default function App() {
