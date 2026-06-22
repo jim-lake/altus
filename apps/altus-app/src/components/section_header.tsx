@@ -80,6 +80,7 @@ export default function SectionHeader({
         <View style={s.searchRow}>
           <TextInput
             style={s.searchInput}
+            autoFocus
             placeholder='Search...'
             placeholderTextColor={placeholderColor}
             value={searchValue}
