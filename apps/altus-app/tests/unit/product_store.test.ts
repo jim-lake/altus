@@ -157,9 +157,21 @@ interface ProductInfo {
   imagePoster: string | null;
 }
 
+interface Title {
+  titleId: string;
+  details: { productId: string };
+}
+
 interface ProductStoreModule {
   init: () => Promise<void>;
-  fetchProduct: (productId: string) => Promise<ProductInfo | null>;
+  fetchForTitles: (titles: Title[]) => Promise<void>;
+  getProductInfo: (productId: string) => ProductInfo | null;
+  searchResult: (titles: Title[] | null, search: string) => Title[] | null;
+  isLoaded: () => boolean;
+}
+
+function makeTitles(ids: string[]): Title[] {
+  return ids.map((id) => ({ titleId: id, details: { productId: id } }));
 }
 
 let ProductStore: ProductStoreModule;
@@ -171,9 +183,11 @@ before(async () => {
 });
 
 void describe('ProductStore (live)', () => {
-  void it('fetches a single product by productId', async () => {
-    const info = await ProductStore.fetchProduct('9NK4NTBFWW81');
+  void it('fetches products for a list of titles', async () => {
+    const titles = makeTitles(['9NK4NTBFWW81']);
+    await ProductStore.fetchForTitles(titles);
 
+    const info = ProductStore.getProductInfo('9NK4NTBFWW81');
     console.log('=== Product Info ===');
     console.log(JSON.stringify(info, null, 2));
 
@@ -185,13 +199,15 @@ void describe('ProductStore (live)', () => {
     );
   });
 
-  void it('returns cached result on second fetch', async () => {
-    const start = Date.now();
-    const info = await ProductStore.fetchProduct('9NK4NTBFWW81');
-    const elapsed = Date.now() - start;
+  void it('returns cached result without re-fetching', async () => {
+    const before = g_catalogRequests.length;
+    const titles = makeTitles(['9NK4NTBFWW81']);
+    await ProductStore.fetchForTitles(titles);
+    const after = g_catalogRequests.length;
 
+    const info = ProductStore.getProductInfo('9NK4NTBFWW81');
     assert.ok(info, 'should return cached product info');
-    assert.ok(elapsed < 10, `should be instant from cache, took ${elapsed}ms`);
+    assert.strictEqual(after, before, 'should not make a new API call');
   });
 
   void it('persists to Storage and retrieves', () => {
@@ -208,150 +224,59 @@ void describe('ProductStore (live)', () => {
     );
   });
 
-  void it('batches multiple requests', async () => {
+  void it('batches multiple titles in one request', async () => {
     const ids = ['9P4KMR76PLLQ', '9PGFHZ103HFR', '9MVHNN0C75V0'];
-    const results = await Promise.all(
-      ids.map((id) => ProductStore.fetchProduct(id))
-    );
+    const before = g_catalogRequests.length;
+    await ProductStore.fetchForTitles(makeTitles(ids));
+    const newRequests = g_catalogRequests.slice(before);
 
-    for (let i = 0; i < ids.length; i++) {
-      console.log(`${ids[i]}: ${results[i]?.productTitle ?? 'null'}`);
+    for (const id of ids) {
+      const info = ProductStore.getProductInfo(id);
+      console.log(`${id}: ${info?.productTitle ?? 'null'}`);
     }
 
-    const resolved = results.filter((r) => r !== null);
+    assert.strictEqual(newRequests.length, 1, 'should be a single API call');
+    const resolved = ids.filter(
+      (id) => ProductStore.getProductInfo(id) !== null
+    );
     assert.ok(resolved.length > 0, 'should resolve at least some products');
   });
 
-  void it('deduplicates concurrent fetches for the same productId', async () => {
+  void it('deduplicates same productId in the list', async () => {
     const id = '9WZDNCRFJ3TJ';
-    const promises = Array.from({ length: 5 }, () =>
-      ProductStore.fetchProduct(id)
+    const titles = makeTitles(Array.from({ length: 5 }, () => id));
+    const before = g_catalogRequests.length;
+    await ProductStore.fetchForTitles(titles);
+    const newRequests = g_catalogRequests.slice(before);
+
+    const containingId = newRequests.filter((r) =>
+      r.productIds.includes(id.toUpperCase())
     );
-    const results = await Promise.all(promises);
-
-    const first = results[0];
-    for (const r of results) {
-      assert.strictEqual(
-        r,
-        first,
-        'all concurrent calls should return same reference'
-      );
-    }
-    console.log(`Dedup test: ${id} => ${first?.productTitle ?? 'null'}`);
-  });
-
-  void it('does not re-fetch a product already in cache', async () => {
-    const start = Date.now();
-    const promises = Array.from({ length: 10 }, () =>
-      ProductStore.fetchProduct('9NK4NTBFWW81')
-    );
-    const results = await Promise.all(promises);
-    const elapsed = Date.now() - start;
-
-    assert.ok(elapsed < 5, `all 10 calls should be instant, took ${elapsed}ms`);
-    for (const r of results) {
-      assert.strictEqual(r?.productId, '9NK4NTBFWW81');
-    }
-  });
-
-  void it('batches requests added within the 100ms window', async () => {
-    const ids = ['9NBLGGH4PBBM', '9NKX70BBCDRN'];
-    const p1 = ProductStore.fetchProduct(ids[0]!);
-    await new Promise((r) => {
-      setTimeout(r, 50);
-    });
-    const p2 = ProductStore.fetchProduct(ids[1]!);
-
-    const [r1, r2] = await Promise.all([p1, p2]);
-    console.log(
-      `Batch window: ${ids[0]} => ${r1?.productTitle ?? 'null'}, ${ids[1]} => ${r2?.productTitle ?? 'null'}`
-    );
-    assert.ok(true, 'both resolved without error');
-  });
-
-  void it('resolves from Storage on fresh fetch of previously persisted item', () => {
-    const stored = g_storage.get('PRODUCT_CACHE');
-    assert.ok(stored, 'product cache should be in storage');
-    const parsed = JSON.parse(stored) as Record<
-      string,
-      { fetchTime: number; productInfo: ProductInfo }
-    >;
-    const entry = parsed['9NK4NTBFWW81'];
-    assert.ok(entry, '9NK4NTBFWW81 should be in cache');
     assert.ok(
-      Date.now() - entry.fetchTime < 30000,
-      'fetchTime should be recent'
+      containingId.length <= 1,
+      `should produce at most 1 API call, got ${containingId.length}`
     );
-    assert.strictEqual(
-      entry.productInfo.productTitle,
-      'Hogwarts Legacy Xbox One Version'
-    );
+    const info = ProductStore.getProductInfo(id);
+    console.log(`Dedup test: ${id} => ${info?.productTitle ?? 'null'}`);
   });
 
-  void it('handles a large concurrent burst without multiple in-flight requests', async () => {
-    const ids = [
-      '9PLHVRTB8GXG',
-      '9NDLGT75G69K',
-      '9N9JK0DZ1BHJ',
-      '9NMLGH99DL6T',
-      '9NZ81RHQR4FM',
-      '9MWR0GBZLML7',
-      '9NJ4R9P680JC',
-      '9P1J5Q8WMRSP',
-      '9NXCBHFH12QK',
-      '9PGJKM7T7MCG',
-      '9N56T1BHXKGP',
-      '9PKWHT5Q8T1S',
-      '9N2ZDN2D6QZ0',
-      '9P513P4M8WJP',
-      '9NKH1R2NKZXX',
-      '9N7GX1NBXZL8',
-      '9NL4KTK0N4CG',
-      '9MTBKGPMW01S',
-      '9NG07QJNK38J',
-      '9N3CJBGRGMZP',
-    ];
-    const start = Date.now();
-    const results = await Promise.all(
-      ids.map((id) => ProductStore.fetchProduct(id))
-    );
-    const elapsed = Date.now() - start;
+  void it('does not re-fetch products already in cache', async () => {
+    const before = g_catalogRequests.length;
+    await ProductStore.fetchForTitles(makeTitles(['9NK4NTBFWW81']));
+    const after = g_catalogRequests.length;
 
-    const resolved = results.filter((r) => r !== null);
-    console.log(
-      `Burst: ${resolved.length}/${ids.length} resolved in ${elapsed}ms`
-    );
-    assert.ok(elapsed < 10000, `should complete within 10s, took ${elapsed}ms`);
+    assert.strictEqual(after, before, 'no new API calls for cached items');
   });
 });
 
 void describe('ProductStore batching mechanics', () => {
-  void it('same product requested 10 times only produces 1 API call', async () => {
-    const before = g_catalogRequests.length;
-    const id = '9NBLGGH537BL';
-    const promises = Array.from({ length: 10 }, () =>
-      ProductStore.fetchProduct(id)
-    );
-    await Promise.all(promises);
-    const newRequests = g_catalogRequests.slice(before);
-
-    const containingId = newRequests.filter((r) => r.productIds.includes(id));
-    assert.strictEqual(
-      containingId.length,
-      1,
-      `expected 1 API call for 10 duplicate requests, got ${containingId.length}`
-    );
-    console.log(`Dedup: 10 calls => ${containingId.length} API request(s)`);
-  });
-
-  void it('110 unique requests produce 2 batches (100 + 10)', async () => {
+  void it('110 unique titles produce 2 batches (100 + 10)', async () => {
     const before = g_catalogRequests.length;
     const ids = Array.from(
       { length: 110 },
       (_, i) => `FAKE${String(i).padStart(6, '0')}XX`
     );
-    const promises = ids.map((id) => ProductStore.fetchProduct(id));
-    await Promise.all(promises);
+    await ProductStore.fetchForTitles(makeTitles(ids));
     const newRequests = g_catalogRequests.slice(before);
 
     console.log(
@@ -374,51 +299,9 @@ void describe('ProductStore batching mechanics', () => {
     );
   });
 
-  void it('requests after 150ms delay go in a separate batch', async () => {
-    const before = g_catalogRequests.length;
-    const batch1Ids = Array.from(
-      { length: 10 },
-      (_, i) => `DELAY1_${String(i).padStart(4, '0')}`
-    );
-    const batch2Ids = Array.from(
-      { length: 10 },
-      (_, i) => `DELAY2_${String(i).padStart(4, '0')}`
-    );
-
-    const p1 = Promise.all(
-      batch1Ids.map((id) => ProductStore.fetchProduct(id))
-    );
-    await new Promise((r) => {
-      setTimeout(r, 150);
-    });
-    const p2 = Promise.all(
-      batch2Ids.map((id) => ProductStore.fetchProduct(id))
-    );
-
-    await Promise.all([p1, p2]);
-    const newRequests = g_catalogRequests.slice(before);
-
-    console.log(
-      `Delayed batches => ${newRequests.length} API call(s), sizes: [${newRequests.map((r) => r.productIds.length).join(', ')}]`
-    );
-    assert.ok(
-      newRequests.length >= 2,
-      `expected at least 2 separate batch calls, got ${newRequests.length}`
-    );
-    const firstBatch = newRequests[0]!;
-    assert.ok(
-      batch1Ids.every((id) => firstBatch.productIds.includes(id)),
-      'first batch should contain all batch1 IDs'
-    );
-  });
-
   void it('already-cached items are never included in API requests', async () => {
     const before = g_catalogRequests.length;
-    await Promise.all(
-      Array.from({ length: 20 }, () =>
-        ProductStore.fetchProduct('9NK4NTBFWW81')
-      )
-    );
+    await ProductStore.fetchForTitles(makeTitles(['9NK4NTBFWW81']));
     const after = g_catalogRequests.length;
 
     assert.strictEqual(
@@ -428,53 +311,104 @@ void describe('ProductStore batching mechanics', () => {
     );
   });
 
-  void it('add 10, wait 150ms, add 10 more produces 2 separate batches', async () => {
+  void it('single request in flight - concurrent calls queue', async () => {
     const before = g_catalogRequests.length;
     const groupA = Array.from(
       { length: 10 },
-      (_, i) => `GROUPA_${String(i).padStart(4, '0')}`
+      (_, i) => `SINGLEFLIGHT_A_${String(i).padStart(4, '0')}`
     );
     const groupB = Array.from(
       { length: 10 },
-      (_, i) => `GROUPB_${String(i).padStart(4, '0')}`
+      (_, i) => `SINGLEFLIGHT_B_${String(i).padStart(4, '0')}`
     );
 
-    // Fire group A
-    const pA = Promise.all(groupA.map((id) => ProductStore.fetchProduct(id)));
-
-    // Wait for batch window to expire AND first request to complete
-    await pA;
-
-    // Now fire group B after first batch completed
-    await new Promise((r) => {
-      setTimeout(r, 50);
-    });
-    const pB = Promise.all(groupB.map((id) => ProductStore.fetchProduct(id)));
-    await pB;
+    // Fire both concurrently — second should queue behind first
+    const pA = ProductStore.fetchForTitles(makeTitles(groupA));
+    const pB = ProductStore.fetchForTitles(makeTitles(groupB));
+    await Promise.all([pA, pB]);
 
     const newRequests = g_catalogRequests.slice(before);
     console.log(
-      `GroupA+B => ${newRequests.length} API call(s), sizes: [${newRequests.map((r) => r.productIds.length).join(', ')}]`
+      `Concurrent => ${newRequests.length} API call(s), sizes: [${newRequests.map((r) => r.productIds.length).join(', ')}]`
     );
+    // Should be at most 2 sequential batches (single in-flight)
+    assert.ok(
+      newRequests.length >= 1 && newRequests.length <= 2,
+      `expected 1-2 sequential batch calls, got ${newRequests.length}`
+    );
+  });
 
-    assert.strictEqual(newRequests.length, 2, 'should be 2 separate batches');
-    assert.ok(
-      groupA.every((id) => newRequests[0]!.productIds.includes(id)),
-      'first batch has group A'
+  void it('handles a large burst without multiple concurrent in-flight requests', async () => {
+    const ids = Array.from(
+      { length: 200 },
+      (_, i) => `BURST_${String(i).padStart(6, '0')}`
     );
-    assert.ok(
-      groupB.every((id) => newRequests[1]!.productIds.includes(id)),
-      'second batch has group B'
+    const before = g_catalogRequests.length;
+    await ProductStore.fetchForTitles(makeTitles(ids));
+    const newRequests = g_catalogRequests.slice(before);
+
+    console.log(
+      `Burst 200: ${newRequests.length} API call(s), sizes: [${newRequests.map((r) => r.productIds.length).join(', ')}]`
     );
+    // 200 ids should produce 2 sequential batches of 100
+    assert.strictEqual(newRequests.length, 2, 'should produce 2 batches');
+    assert.strictEqual(newRequests[0]!.productIds.length, 100);
+    assert.strictEqual(newRequests[1]!.productIds.length, 100);
   });
 });
 
 void describe('ProductStore - DayZ image debug', () => {
   void it('fetches DayZ with lowercase productId', async () => {
-    const info = await ProductStore.fetchProduct('bsr9nlhvf1kl');
+    await ProductStore.fetchForTitles(makeTitles(['bsr9nlhvf1kl']));
+    const info = ProductStore.getProductInfo('bsr9nlhvf1kl');
     console.log('DayZ:', JSON.stringify(info, null, 2));
     assert.ok(info, 'DayZ should resolve');
     assert.strictEqual(info.productTitle, 'DayZ');
     assert.ok(info.imageTile, 'DayZ should have an image');
+  });
+});
+
+void describe('ProductStore - searchResult', () => {
+  void it('returns all titles when search is empty', async () => {
+    const titles = makeTitles(['9NK4NTBFWW81', '9P4KMR76PLLQ']);
+    await ProductStore.fetchForTitles(titles);
+    const result = ProductStore.searchResult(titles, '');
+    assert.strictEqual(
+      result,
+      titles,
+      'should return the same array reference'
+    );
+  });
+
+  void it('returns null when titles is null', () => {
+    const result = ProductStore.searchResult(null, 'test');
+    assert.strictEqual(result, null);
+  });
+
+  void it('filters titles by product name', async () => {
+    const titles = makeTitles(['9NK4NTBFWW81', 'BSR9NLHVF1KL']);
+    await ProductStore.fetchForTitles(titles);
+    const result = ProductStore.searchResult(titles, 'dayz');
+    assert.ok(result, 'should return a result');
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0]!.details.productId, 'BSR9NLHVF1KL');
+  });
+
+  void it('falls back to titleId when product info is missing', () => {
+    const titles: Title[] = [
+      { titleId: 'UNKNOWN_GAME_XYZ', details: { productId: 'NOTEXIST123' } },
+    ];
+    const result = ProductStore.searchResult(titles, 'UNKNOWN_GAME');
+    assert.ok(result, 'should return a result');
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0]!.titleId, 'UNKNOWN_GAME_XYZ');
+  });
+
+  void it('is case-insensitive', async () => {
+    const titles = makeTitles(['9NK4NTBFWW81']);
+    await ProductStore.fetchForTitles(titles);
+    const result = ProductStore.searchResult(titles, 'HOGWARTS');
+    assert.ok(result, 'should return a result');
+    assert.strictEqual(result.length, 1);
   });
 });

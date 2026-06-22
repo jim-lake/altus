@@ -154,7 +154,8 @@ interface ProductInfo {
 
 interface ProductStoreModule {
   init: () => Promise<void>;
-  fetchProduct: (productId: string) => Promise<ProductInfo | null>;
+  fetchForTitles: (titles: Title[]) => Promise<void>;
+  getProductInfo: (productId: string) => ProductInfo | null;
 }
 
 interface Title {
@@ -185,12 +186,12 @@ void describe('verify_tile_images', () => {
     const titles = await getTitles();
     console.log('Total titles:', titles.length);
 
-    const results = await Promise.all(
-      titles.map(async (t) => ({
-        title: t,
-        product: await ProductStore.fetchProduct(t.details.productId),
-      }))
-    );
+    await ProductStore.fetchForTitles(titles);
+
+    const results = titles.map((t) => ({
+      title: t,
+      product: ProductStore.getProductInfo(t.details.productId),
+    }));
 
     const missing = results.filter((r) => r.product && !r.product.imageTile);
 

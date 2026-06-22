@@ -18,11 +18,15 @@ const CHANGE_EVENT = 'change';
 function _emit() {
   g_eventEmitter.emit(CHANGE_EVENT);
 }
-function _subscribe(callback: () => void) {
+export function addListener(callback: () => void) {
   g_eventEmitter.on(CHANGE_EVENT, callback);
   return () => {
     g_eventEmitter.removeListener(CHANGE_EVENT, callback);
   };
+}
+
+export function getList(): Title[] | null {
+  return g_list;
 }
 
 export function init() {
@@ -36,10 +40,10 @@ function _onUserChange() {
   }
 }
 export function useLatestList(): Title[] | null {
-  return useSyncExternalStore(_subscribe, () => g_latestList);
+  return useSyncExternalStore(addListener, () => g_latestList);
 }
 export function useList(): Title[] | null {
-  return useSyncExternalStore(_subscribe, () => g_list);
+  return useSyncExternalStore(addListener, () => g_list);
 }
 export const fetch = herd(async () => {
   try {
@@ -53,4 +57,4 @@ export const fetch = herd(async () => {
   }
 });
 
-export default { init, useLatestList, useList, fetch };
+export default { init, useLatestList, useList, fetch, addListener, getList };

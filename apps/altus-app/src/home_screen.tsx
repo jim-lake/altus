@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, SectionList, Text, View } from 'react-native';
+import {
+  Dimensions,
+  SectionList,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import TextButton from '@/components/buttons/text_button';
 import ConsoleTile from '@/components/console_tile';
@@ -14,6 +21,7 @@ import {
   useLatestList,
   useList as useGameList,
 } from '@/stores/game_store';
+import { useSearchResult } from '@/stores/product_store';
 import { logout } from '@/stores/user_store';
 import { useLatestCallback } from '@/tools/latest_callback';
 
@@ -25,6 +33,8 @@ const ROW_HORIZONTAL_PADDING = 20;
 const TILE_MARGIN = 5;
 
 const styles = StyleSheet.create({
+  clearButton: { paddingHorizontal: 6 },
+  clearText: { color: 'var(--secondary-text-color)', fontSize: 16 },
   content: { padding: 0 },
   empty: {
     color: 'var(--secondary-text-color)',
@@ -32,12 +42,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   homeScreen: { backgroundColor: 'var(--bg-color)', flex: 1 },
-  logout: { marginTop: 32 },
   row: {
     flexDirection: 'row',
     marginBottom: TILE_MARGIN * 2,
     paddingHorizontal: ROW_HORIZONTAL_PADDING,
   },
+  searchInput: {
+    borderColor: 'var(--secondary-text-color)',
+    borderRadius: 6,
+    borderWidth: 1,
+    color: 'var(--text-color)',
+    fontSize: 14,
+    height: 28,
+    paddingHorizontal: 8,
+    width: 180,
+  },
+  searchRow: { alignItems: 'center', flexDirection: 'row' },
   sectionHeader: {
     backgroundColor: 'var(--bg-color)',
     color: 'var(--text-color)',
@@ -47,6 +67,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingBottom: 12,
     paddingTop: 24,
+  },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    backgroundColor: 'var(--bg-color)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingRight: ROW_HORIZONTAL_PADDING + TILE_MARGIN,
   },
   showMoreButton: {
     marginBottom: 10,
@@ -84,6 +111,7 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
   const latestGames = useLatestList();
   const games = useGameList();
   const [moreLatestGames, setMoreLatestGames] = useState(false);
+  const [gameSearch, setGameSearch] = useState('');
 
   const onLayout = useCallback(
     (e: { nativeEvent: { layout: { width: number } } }) => {
@@ -102,6 +130,8 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
   const handleLogout = useLatestCallback(async () => {
     await logout();
   });
+
+  const filteredGames = useSearchResult(games, gameSearch);
 
   const sections: Section[] = useMemo(() => {
     const consoleSectionData: RowItem[] =
@@ -135,9 +165,9 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
             ];
 
     const gameSectionData: RowItem[] =
-      games === null
+      filteredGames === null
         ? [{ key: 'g-empty', type: 'empty', message: 'Loading...' }]
-        : games.length === 0
+        : filteredGames.length === 0
           ? [
               {
                 key: 'g-none',
@@ -145,7 +175,7 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
                 message: 'No cloud games available',
               },
             ]
-          : chunkArray(games, cols).map((items, i) => ({
+          : chunkArray(filteredGames, cols).map((items, i) => ({
               key: `g-${i}`,
               type: 'games',
               items,
@@ -156,7 +186,7 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
       { title: 'Continue Playing', data: latestSectionData },
       { title: 'Cloud Games', data: gameSectionData },
     ];
-  }, [consoles, cols, latestGames, games, moreLatestGames]);
+  }, [consoles, cols, latestGames, filteredGames, moreLatestGames]);
 
   return (
     <SectionList
@@ -167,9 +197,35 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
       stickySectionHeadersEnabled={false}
       keyExtractor={(item) => item.key}
       renderSectionHeader={({ section }) => (
-        <Text selectable style={s.sectionHeader}>
-          {section.title}
-        </Text>
+        <View style={s.sectionHeaderRow}>
+          <Text selectable style={s.sectionHeader}>
+            {section.title}
+          </Text>
+          {section.title === 'Your Consoles' && (
+            <TextButton text='Log Out' type='danger' onPress={handleLogout} />
+          )}
+          {section.title === 'Cloud Games' && (
+            <View style={s.searchRow}>
+              <TextInput
+                style={s.searchInput}
+                placeholder='Search games...'
+                placeholderTextColor='var(--secondary-text-color)'
+                value={gameSearch}
+                onChangeText={setGameSearch}
+              />
+              {gameSearch.length > 0 && (
+                <TouchableOpacity
+                  style={s.clearButton}
+                  onPress={() => {
+                    setGameSearch('');
+                  }}
+                >
+                  <Text style={s.clearText}>{'✕'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
       )}
       renderItem={({ item }) => {
         if (item.type === 'empty') {
@@ -216,14 +272,7 @@ export default function HomeScreen({ style }: { style?: ViewStyle }) {
           </View>
         );
       }}
-      ListFooterComponent={
-        <TextButton
-          text='Log Out'
-          type='danger'
-          onPress={handleLogout}
-          style={s.logout}
-        />
-      }
+      ListFooterComponent={null}
     />
   );
 }

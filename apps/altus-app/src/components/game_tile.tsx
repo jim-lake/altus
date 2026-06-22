@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Image, PixelRatio, Text, View } from 'react-native';
 
 import { StyleSheet, useStyles } from '@/components/theme_style';
-import { fetchProduct, useProductInfo } from '@/stores/product_store';
+import { useProductInfo } from '@/stores/product_store';
 
 import type { Title } from '@/lib/xcloud_api';
 import type { ViewStyle } from 'react-native';
@@ -41,10 +41,6 @@ interface Props {
 export default function GameTile({ title, style }: Props) {
   const s = useStyles(styles);
   const product = useProductInfo(title.details.productId);
-
-  useEffect(() => {
-    void fetchProduct(title.details.productId);
-  }, [title.details.productId]);
 
   const imageSrc = product?.imageTile ?? product?.imagePoster;
   const imageUri = imageSrc ? `https:${imageSrc}?w=${SIZE}` : null;

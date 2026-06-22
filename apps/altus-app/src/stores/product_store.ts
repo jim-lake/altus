@@ -3,11 +3,13 @@ import { EventEmitter } from 'events';
 import { useSyncExternalStore } from 'react';
 
 import api from '@/tools/api';
+import { deepEqual } from '@/tools/deep_equal';
 import { errorLog, log } from '@/tools/log';
 import Storage from '@/tools/storage';
 
+import { addListener as addGameListener, getList } from './game_store';
+
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
-const BATCH_DELAY = 100;
 const BATCH_SIZE = 100;
 const STORAGE_KEY = 'PRODUCT_CACHE';
 
@@ -38,19 +40,13 @@ interface CatalogResponse {
   InvalidIds?: string[];
 }
 
-interface PendingRequest {
-  productId: string;
-  resolve: (info: ProductInfo | null) => void;
-}
-
 type StorageData = Record<string, CachedProduct>;
 
 const g_cache = new Map<string, CachedProduct>();
-const g_inflight = new Set<string>();
-const g_pendingQueue: PendingRequest[] = [];
-let g_batchTimer: ReturnType<typeof setTimeout> | null = null;
 let g_requestInFlight = false;
+const g_pendingIds: string[] = [];
 let g_loaded = false;
+let g_flushResolvers: Array<() => void> = [];
 
 const g_eventEmitter = new EventEmitter();
 g_eventEmitter.setMaxListeners(1000);
@@ -86,38 +82,56 @@ export async function init() {
   }
   g_loaded = true;
   _emit();
+  addGameListener(_onGameListChange);
 }
 
-async function _save() {
-  const data: StorageData = {};
-  for (const [key, entry] of g_cache) {
-    if (_isCacheValid(entry)) {
-      data[key] = entry;
-    }
-  }
-  await Storage.setItem({ key: STORAGE_KEY, value: data });
-}
-
-function _scheduleBatch() {
-  if (g_batchTimer !== null) {
+function _onGameListChange() {
+  const titles = getList();
+  if (!titles) {
     return;
   }
-  g_batchTimer = setTimeout(() => {
-    g_batchTimer = null;
+  void fetchForTitles(titles);
+}
+
+export function fetchForTitles(
+  titles: Array<{ details: { productId: string } }>
+): Promise<void> {
+  const missing: string[] = [];
+  for (const t of titles) {
+    const key = t.details.productId.toUpperCase();
+    const cached = g_cache.get(key);
+    if (!cached || !_isCacheValid(cached)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length === 0) {
+    return Promise.resolve();
+  }
+  // Deduplicate against already-pending ids
+  const pendingSet = new Set(g_pendingIds);
+  const newIds = missing.filter((id) => !pendingSet.has(id));
+  if (newIds.length === 0) {
+    // Already queued — wait for current flush cycle to complete
+    return new Promise((resolve) => {
+      g_flushResolvers.push(resolve);
+    });
+  }
+  g_pendingIds.push(...newIds);
+  return new Promise((resolve) => {
+    g_flushResolvers.push(resolve);
     void _flush();
-  }, BATCH_DELAY);
+  });
 }
 
 async function _flush() {
-  if (g_requestInFlight || g_pendingQueue.length === 0) {
+  if (g_requestInFlight || g_pendingIds.length === 0) {
     return;
   }
 
-  const batch = g_pendingQueue.splice(0, BATCH_SIZE);
+  const batch = g_pendingIds.splice(0, BATCH_SIZE);
   g_requestInFlight = true;
 
-  const productIds = batch.map((r) => r.productId);
-  log('product_store: Requesting', productIds.length, 'products from catalog');
+  log('product_store: Requesting', batch.length, 'products from catalog');
   try {
     const result = await api.post<CatalogResponse>({
       url: 'https://catalog.gamepass.com/v3/products?market=US&language=en-US&hydration=RemoteHighSapphire0',
@@ -126,7 +140,7 @@ async function _flush() {
         'calling-app-name': 'Xbox Cloud Gaming Web',
         'calling-app-version': '21.0.0',
       },
-      body: { Products: productIds },
+      body: { Products: batch },
     });
 
     const now = Date.now();
@@ -143,16 +157,8 @@ async function _flush() {
           imageTile: product.Image_Tile?.URL ?? null,
           imagePoster: product.Image_Poster?.URL ?? null,
         };
-        if (!info.imageTile) {
-          errorLog(
-            'product_store: No tile image for',
-            product.StoreId,
-            product.ProductTitle
-          );
-        }
         const entry: CachedProduct = { fetchTime: now, productInfo: info };
         g_cache.set(product.StoreId, entry);
-        g_inflight.delete(product.StoreId);
       }
       log(
         'product_store: Fetched',
@@ -166,20 +172,6 @@ async function _flush() {
           result.body.InvalidIds.slice(0, 10)
         );
       }
-      const returnedIds = new Set(
-        Object.values(result.body.Products).map((p) => p.StoreId)
-      );
-      const invalidIds = new Set(result.body.InvalidIds ?? []);
-      const missingIds = productIds.filter(
-        (id) => !returnedIds.has(id) && !invalidIds.has(id)
-      );
-      if (missingIds.length > 0) {
-        errorLog(
-          'product_store: Products not returned by catalog:',
-          missingIds.length,
-          missingIds.slice(0, 10)
-        );
-      }
     } else {
       errorLog(
         'product_store: Catalog request failed',
@@ -189,50 +181,33 @@ async function _flush() {
       );
     }
 
-    // Resolve all pending promises
-    for (const req of batch) {
-      const cached = g_cache.get(req.productId);
-      if (!cached?.productInfo) {
-        errorLog('product_store: Failed to get info for', req.productId);
-      }
-      req.resolve(cached?.productInfo ?? null);
-      g_inflight.delete(req.productId);
-    }
     _emit();
     void _save();
   } catch (e) {
     errorLog('product_store: Catalog request error', e);
-    for (const req of batch) {
-      req.resolve(null);
-      g_inflight.delete(req.productId);
-    }
   }
 
   g_requestInFlight = false;
 
-  if (g_pendingQueue.length > 0) {
-    void _flush();
+  if (g_pendingIds.length > 0) {
+    await _flush();
+  } else {
+    const resolvers = g_flushResolvers;
+    g_flushResolvers = [];
+    for (const resolve of resolvers) {
+      resolve();
+    }
   }
 }
 
-export function fetchProduct(productId: string): Promise<ProductInfo | null> {
-  const key = productId.toUpperCase();
-  const cached = g_cache.get(key);
-  if (cached && _isCacheValid(cached)) {
-    return Promise.resolve(cached.productInfo);
+async function _save() {
+  const data: StorageData = {};
+  for (const [key, entry] of g_cache) {
+    if (_isCacheValid(entry)) {
+      data[key] = entry;
+    }
   }
-
-  if (g_inflight.has(key)) {
-    return new Promise((resolve) => {
-      g_pendingQueue.push({ productId: key, resolve });
-    });
-  }
-
-  g_inflight.add(key);
-  return new Promise((resolve) => {
-    g_pendingQueue.push({ productId: key, resolve });
-    _scheduleBatch();
-  });
+  await Storage.setItem({ key: STORAGE_KEY, value: data });
 }
 
 export function useProductInfo(productId: string): ProductInfo | null {
@@ -246,8 +221,62 @@ export function useProductInfo(productId: string): ProductInfo | null {
   });
 }
 
+export function getProductInfo(productId: string): ProductInfo | null {
+  const key = productId.toUpperCase();
+  const cached = g_cache.get(key);
+  if (cached && _isCacheValid(cached)) {
+    return cached.productInfo;
+  }
+  return null;
+}
+
+interface Searchable {
+  titleId: string;
+  details: { productId: string };
+}
+
+let g_searchResultCache: Searchable[] | null = null;
+
+export function searchResult<T extends Searchable>(
+  titles: T[] | null,
+  search: string
+): T[] | null {
+  if (titles === null) {
+    return null;
+  }
+  if (!search.trim()) {
+    return titles;
+  }
+  const term = search.trim().toLowerCase();
+  const result = titles.filter((t) => {
+    const info = getProductInfo(t.details.productId);
+    const name = info?.productTitle ?? t.titleId;
+    return name.toLowerCase().includes(term);
+  });
+  if (deepEqual(result, g_searchResultCache)) {
+    return g_searchResultCache as T[];
+  }
+  g_searchResultCache = result;
+  return result;
+}
+
+export function useSearchResult<T extends Searchable>(
+  titles: T[] | null,
+  search: string
+): T[] | null {
+  return useSyncExternalStore(_subscribe, () => searchResult(titles, search));
+}
+
 export function isLoaded(): boolean {
   return g_loaded;
 }
 
-export default { init, fetchProduct, useProductInfo, isLoaded };
+export default {
+  init,
+  fetchForTitles,
+  useProductInfo,
+  getProductInfo,
+  searchResult,
+  useSearchResult,
+  isLoaded,
+};
