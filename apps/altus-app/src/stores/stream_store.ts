@@ -1,6 +1,11 @@
 import { EventEmitter } from 'events';
 
 import { useSyncExternalStore } from 'react';
+import {
+  RTCIceCandidate,
+  RTCPeerConnection,
+  RTCSessionDescription,
+} from 'react-native-webrtc';
 
 import { get, getToken, post } from '@/stores/user_store';
 import { errorLog, log } from '@/tools/log';
@@ -18,18 +23,10 @@ export type StreamPhase =
   | 'connected'
   | 'failed';
 
-export interface IceCandidate {
+interface IceCandidate {
   candidate: string;
   sdpMLineIndex: number;
   sdpMid: string;
-}
-
-export interface StreamState {
-  phase: StreamPhase;
-  sessionId: string | null;
-  sdpAnswer: string | null;
-  iceCandidates: IceCandidate[] | null;
-  error: string | null;
 }
 
 interface StartStreamResponse {
@@ -65,14 +62,12 @@ const SDP_CONFIGURATION = {
   message: { minVersion: 1, maxVersion: 1 },
 };
 
-let g_state: StreamState = {
-  phase: 'idle',
-  sessionId: null,
-  sdpAnswer: null,
-  iceCandidates: null,
-  error: null,
-};
+let g_phase: StreamPhase = 'idle';
+let g_sessionId: string | null = null;
+let g_streamUrl: string | null = null;
+let g_error: string | null = null;
 let g_keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+let g_pc: RTCPeerConnection | null = null;
 
 const g_eventEmitter = new EventEmitter();
 const CHANGE_EVENT = 'change';
@@ -86,50 +81,71 @@ function _subscribe(callback: () => void) {
     g_eventEmitter.removeListener(CHANGE_EVENT, callback);
   };
 }
-function _setState(partial: Partial<StreamState>) {
-  g_state = { ...g_state, ...partial };
-  _emit();
-}
 
-export function useStreamState(): StreamState {
-  return useSyncExternalStore(_subscribe, () => g_state);
+export function usePhase(): StreamPhase {
+  return useSyncExternalStore(_subscribe, () => g_phase);
 }
-
-export function getStreamState(): StreamState {
-  return g_state;
+export function useStreamUrl(): string | null {
+  return useSyncExternalStore(_subscribe, () => g_streamUrl);
+}
+export function useError(): string | null {
+  return useSyncExternalStore(_subscribe, () => g_error);
+}
+export function getPhase(): StreamPhase {
+  return g_phase;
+}
+export function getSessionId(): string | null {
+  return g_sessionId;
+}
+export function getStreamUrl(): string | null {
+  return g_streamUrl;
+}
+export function getError(): string | null {
+  return g_error;
 }
 
 export async function startPlay(titleId: string): Promise<void> {
   _reset();
-  _setState({ phase: 'starting' });
+  g_phase = 'starting';
+  _emit();
 
   try {
-    const sessionId = await _startSession(titleId, 'xgpuweb');
-    _setState({ sessionId, phase: 'provisioning' });
+    g_sessionId = await _startSession(titleId, 'xgpuweb');
+    g_phase = 'provisioning';
+    _emit();
 
-    await _pollUntilProvisioned(sessionId, 'xgpuweb');
-    _setState({ phase: 'provisioned' });
+    await _pollUntilProvisioned(g_sessionId, 'xgpuweb');
+    g_phase = 'provisioned';
+    _emit();
 
-    const { sdp: sdpOffer, candidates: localCandidates } = await _createOffer();
-    _setState({ phase: 'sdp_offer' });
+    const { sdp, candidates } = await _createPeerConnection();
+    g_phase = 'sdp_offer';
+    _emit();
 
-    await _sendSdpOffer(sessionId, sdpOffer, 'xgpuweb');
-    const sdpAnswer = await _pollSdpAnswer(sessionId, 'xgpuweb');
-    _setState({ phase: 'sdp_answer', sdpAnswer });
+    await _sendSdpOffer(g_sessionId, sdp, 'xgpuweb');
+    const sdpAnswer = await _pollSdpAnswer(g_sessionId, 'xgpuweb');
+    g_phase = 'sdp_answer';
+    _emit();
 
-    const iceCandidates = await _exchangeIce(
-      sessionId,
+    await _setRemoteDescription(sdpAnswer);
+    const remoteCandidates = await _exchangeIce(
+      g_sessionId,
       'xgpuweb',
-      localCandidates
+      candidates
     );
-    _setState({ phase: 'ice_exchange', iceCandidates });
+    await _addIceCandidates(remoteCandidates);
+    g_phase = 'ice_exchange';
+    _emit();
 
-    _startKeepalive(sessionId, 'xgpuweb');
-    _setState({ phase: 'connected' });
+    _startKeepalive(g_sessionId, 'xgpuweb');
+    g_phase = 'connected';
+    _emit();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     errorLog('stream_store: startPlay failed', msg);
-    _setState({ phase: 'failed', error: msg });
+    g_phase = 'failed';
+    g_error = msg;
+    _emit();
   }
 }
 
@@ -142,13 +158,14 @@ function _reset() {
     clearInterval(g_keepaliveTimer);
     g_keepaliveTimer = null;
   }
-  g_state = {
-    phase: 'idle',
-    sessionId: null,
-    sdpAnswer: null,
-    iceCandidates: null,
-    error: null,
-  };
+  if (g_pc) {
+    g_pc.close();
+    g_pc = null;
+  }
+  g_phase = 'idle';
+  g_sessionId = null;
+  g_streamUrl = null;
+  g_error = null;
   _emit();
 }
 
@@ -250,9 +267,13 @@ async function _sendConnect(
   log('stream_store: Connect sent');
 }
 
-async function _createOffer(): Promise<{ sdp: string; candidates: string[] }> {
-  const { RTCPeerConnection } = await import('react-native-webrtc');
+async function _createPeerConnection(): Promise<{
+  sdp: string;
+  candidates: string[];
+}> {
   const pc = new RTCPeerConnection({});
+  g_pc = pc;
+
   pc.addTransceiver('audio', { direction: 'sendrecv' });
   pc.addTransceiver('video', { direction: 'recvonly' });
 
@@ -277,14 +298,39 @@ async function _createOffer(): Promise<{ sdp: string; candidates: string[] }> {
     }
   };
 
+  pc.ontrack = (event: { streams: Array<{ toURL: () => string }> }) => {
+    const stream = event.streams[0];
+    if (stream) {
+      g_streamUrl = stream.toURL();
+      _emit();
+    }
+  };
+
   const offer = (await pc.createOffer({})) as { type: string; sdp: string };
   await pc.setLocalDescription(offer);
 
-  // Wait briefly for ICE gathering
+  // Wait for ICE gathering
   await _sleep(500);
 
-  pc.close();
   return { sdp: offer.sdp, candidates };
+}
+
+async function _setRemoteDescription(sdp: string): Promise<void> {
+  if (!g_pc) {
+    throw new Error('no_peer_connection');
+  }
+  await g_pc.setRemoteDescription(
+    new RTCSessionDescription({ type: 'answer', sdp })
+  );
+}
+
+async function _addIceCandidates(candidates: IceCandidate[]): Promise<void> {
+  if (!g_pc) {
+    throw new Error('no_peer_connection');
+  }
+  for (const c of candidates) {
+    await g_pc.addIceCandidate(new RTCIceCandidate(c));
+  }
 }
 
 async function _sendSdpOffer(
@@ -419,4 +465,14 @@ function _sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export default { useStreamState, getStreamState, startPlay, stop };
+export default {
+  usePhase,
+  useStreamUrl,
+  useError,
+  getPhase,
+  getSessionId,
+  getStreamUrl,
+  getError,
+  startPlay,
+  stop,
+};
