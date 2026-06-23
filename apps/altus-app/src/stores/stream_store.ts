@@ -56,6 +56,8 @@ let g_streamUrl: string | null = null;
 let g_error: string | null = null;
 let g_keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 let g_pc: RTCPeerConnection | null = null;
+let g_inputChannel: { send: (data: Uint8Array) => void } | null = null;
+let g_controlChannel: { send: (data: Uint8Array) => void } | null = null;
 
 const g_eventEmitter = new EventEmitter();
 const CHANGE_EVENT = 'change';
@@ -90,6 +92,27 @@ export function getStreamUrl(): string | null {
 }
 export function getError(): string | null {
   return g_error;
+}
+
+export function sendInputFrame(data: Uint8Array): void {
+  if (g_inputChannel) {
+    g_inputChannel.send(data);
+  }
+}
+
+export function sendControlMessage(msg: object): void {
+  if (g_controlChannel) {
+    g_controlChannel.send(new TextEncoder().encode(JSON.stringify(msg)));
+  } else {
+    errorLog('stream_store: sendControlMessage called with no control channel');
+  }
+}
+
+export function addListener(event: string, callback: () => void): () => void {
+  g_eventEmitter.on(event, callback);
+  return () => {
+    g_eventEmitter.removeListener(event, callback);
+  };
 }
 
 export async function startPlay(titleId: string): Promise<void> {
@@ -176,6 +199,8 @@ function _reset() {
     g_pc.close();
     g_pc = null;
   }
+  g_inputChannel = null;
+  g_controlChannel = null;
   g_phase = 'idle';
   g_sessionId = null;
   g_streamUrl = null;
@@ -227,9 +252,8 @@ async function _pollUntilProvisioned(
   sessionId: string,
   credentialType: CredentialType
 ): Promise<void> {
-  const MAX_POLLS = 60;
   let connected = false;
-  for (let i = 0; i < MAX_POLLS; i++) {
+  for (;;) {
     if (g_stopped) {
       return;
     }
@@ -263,8 +287,6 @@ async function _pollUntilProvisioned(
       throw new Error(`session_failed: ${msg}`);
     }
   }
-  errorLog('stream_store: poll_timeout after', MAX_POLLS, 'attempts');
-  throw new Error('poll_timeout');
 }
 
 async function _sendConnect(
@@ -597,9 +619,11 @@ function _setupDataChannels(pc: RTCPeerConnection): void {
 
   controlChannel.onopen = () => {
     log('stream_store: control channel open');
+    g_controlChannel = controlChannel;
   };
   controlChannel.onclose = () => {
     errorLog('stream_store: control channel closed');
+    g_controlChannel = null;
   };
   controlChannel.onmessage = (event: { data: ArrayBuffer | string }) => {
     const text =
@@ -614,9 +638,11 @@ function _setupDataChannels(pc: RTCPeerConnection): void {
 
   inputChannel.onopen = () => {
     log('stream_store: input channel open');
+    g_inputChannel = inputChannel;
   };
   inputChannel.onclose = () => {
     errorLog('stream_store: input channel closed');
+    g_inputChannel = null;
   };
   inputChannel.onerror = (event: unknown) => {
     errorLog('stream_store: input channel error:', event);
@@ -640,14 +666,7 @@ function _sendControlAuth(channel: { send: (data: Uint8Array) => void }) {
   });
   channel.send(new TextEncoder().encode(auth));
   log('stream_store: sent control auth');
-
-  const gamepad = JSON.stringify({
-    message: 'gamepadChanged',
-    gamepadIndex: 0,
-    wasAdded: true,
-  });
-  channel.send(new TextEncoder().encode(gamepad));
-  log('stream_store: sent gamepad added');
+  g_eventEmitter.emit('control_ready');
 }
 
 function _sendMessageConfig(channel: { send: (data: Uint8Array) => void }) {
@@ -728,6 +747,9 @@ export default {
   getSessionId,
   getStreamUrl,
   getError,
+  addListener,
+  sendControlMessage,
+  sendInputFrame,
   startPlay,
   stop,
 };

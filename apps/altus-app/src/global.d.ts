@@ -5,3 +5,6 @@ declare class TextEncoder {
 declare class TextDecoder {
   decode(input?: ArrayBuffer | Uint8Array): string;
 }
+
+// Hermes provides performance.now()
+declare const performance: { now: () => number };
