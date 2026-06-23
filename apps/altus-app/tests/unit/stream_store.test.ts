@@ -201,12 +201,16 @@ class PatchedPeerConnection extends WeriftPeerConnection {
           const sub = e.track.onReceiveRtp.subscribe(() => {
             g_videoRtpCount++;
           });
-          g_unsubs.push(() => sub.unSubscribe());
+          g_unsubs.push(() => {
+            sub.unSubscribe();
+          });
         } else if (e.track.kind === 'audio') {
           const sub = e.track.onReceiveRtp.subscribe(() => {
             g_audioRtpCount++;
           });
-          g_unsubs.push(() => sub.unSubscribe());
+          g_unsubs.push(() => {
+            sub.unSubscribe();
+          });
         }
       }
     );

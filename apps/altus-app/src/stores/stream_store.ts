@@ -155,7 +155,7 @@ export async function stop(): Promise<void> {
   _emit();
 
   if (pc) {
-    await pc.close();
+    pc.close();
   }
   if (sessionId) {
     log('stream_store: Stopping session', sessionId);
@@ -173,7 +173,7 @@ function _reset() {
     g_keepaliveTimer = null;
   }
   if (g_pc) {
-    void g_pc.close();
+    g_pc.close();
     g_pc = null;
   }
   g_phase = 'idle';
