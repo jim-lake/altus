@@ -165,6 +165,7 @@ class PatchedPeerConnection extends WeriftPeerConnection {
   constructor(config?: object) {
     super({
       ...config,
+      bundlePolicy: 'max-bundle',
       codecs: {
         audio: [
           new RTCRtpCodecParameters({

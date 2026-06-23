@@ -27,8 +27,8 @@ const CODECS = {
 
 void describe('werift cleanup', () => {
   void it('exits cleanly after two PCs connect and close', async () => {
-    const pc1 = new RTCPeerConnection({ codecs: CODECS });
-    const pc2 = new RTCPeerConnection({ codecs: CODECS });
+    const pc1 = new RTCPeerConnection({ codecs: CODECS, bundlePolicy: 'max-bundle' });
+    const pc2 = new RTCPeerConnection({ codecs: CODECS, bundlePolicy: 'max-bundle' });
 
     pc1.addTransceiver('audio', { direction: 'recvonly' });
     pc1.addTransceiver('video', { direction: 'recvonly' });
