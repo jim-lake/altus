@@ -6,6 +6,7 @@ import ConsoleTile from '@/components/console_tile';
 import GameTile from '@/components/game_tile';
 import SectionHeader from '@/components/section_header';
 import { StyleSheet, useStyles } from '@/components/theme_style';
+import { openSettings } from '@/lib/window_helper';
 import { isTitlePlayable } from '@/lib/xcloud_api';
 import {
   fetch as fetchConsoles,
@@ -114,6 +115,10 @@ export default function HomeScreen({
     ]);
   });
 
+  const handleOpenSettings = useLatestCallback(() => {
+    void openSettings();
+  });
+
   const filteredGames = useSearchResult(games, gameSearch);
 
   const sections: Section[] = useMemo(() => {
@@ -209,6 +214,9 @@ export default function HomeScreen({
           buttonText={section.title === 'Your Consoles' ? 'Log Out' : undefined}
           onButtonPress={
             section.title === 'Your Consoles' ? handleLogout : undefined
+          }
+          onSettingsPress={
+            section.title === 'Your Consoles' ? handleOpenSettings : undefined
           }
           onSearchChange={
             section.title === 'Cloud Playable Games' ? setGameSearch : undefined

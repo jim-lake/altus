@@ -9,12 +9,14 @@ interface Props {
   text: string;
   buttonText?: string;
   onButtonPress?: () => void | Promise<void>;
+  onSettingsPress?: () => void;
   onSearchChange?: (value: string) => void;
   searchValue?: string;
   style?: ViewStyle;
 }
 
 const styles = StyleSheet.create({
+  buttonRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   clearButton: {
     alignItems: 'center',
     bottom: 0,
@@ -49,6 +51,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  settingsButton: {
+    alignItems: 'center',
+    borderColor: 'var(--button-ghost-border)',
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  settingsIcon: { color: 'var(--button-ghost-text)', fontSize: 16 },
   title: {
     backgroundColor: 'var(--bg-color)',
     color: 'var(--text-color)',
@@ -61,6 +73,7 @@ export default function SectionHeader({
   text,
   buttonText,
   onButtonPress,
+  onSettingsPress,
   onSearchChange,
   searchValue,
   style,
@@ -73,8 +86,25 @@ export default function SectionHeader({
       <Text selectable style={s.title}>
         {text}
       </Text>
-      {buttonText !== undefined && (
-        <TextButton text={buttonText} type='danger' onPress={onButtonPress} />
+      {(buttonText !== undefined || onSettingsPress !== undefined) && (
+        <View style={s.buttonRow}>
+          {onSettingsPress !== undefined && (
+            <TouchableOpacity
+              style={s.settingsButton}
+              onPress={onSettingsPress}
+              activeOpacity={0.6}
+            >
+              <Text style={s.settingsIcon}>{'⚙'}</Text>
+            </TouchableOpacity>
+          )}
+          {buttonText !== undefined && (
+            <TextButton
+              text={buttonText}
+              type='danger'
+              onPress={onButtonPress}
+            />
+          )}
+        </View>
       )}
       {onSearchChange !== undefined && (
         <View style={s.searchRow}>

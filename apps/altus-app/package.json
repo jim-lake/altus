@@ -8,9 +8,8 @@
     "#components/*": "./src/components/*"
   },
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
-    "mac": "react-native run-macos",
+    "run:macos": "react-native run-macos",
+    "build:macos": "LOGFILE=/tmp/altus-app-build-$(date +%s).log; react-native build-macos --mode Debug > $LOGFILE 2>&1 && echo \"BUILD SUCCEEDED — $LOGFILE\" || (echo \"BUILD FAILED — $LOGFILE\"; exit 1)",
     "lint": "eslint . --fix",
     "pretty": "prettier -u --write *",
     "start": "react-native start",
@@ -21,11 +20,13 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "3.1.1",
+    "@react-native-picker/picker": "https://github.com/jim-lake/react-native-picker/releases/download/f1638a4/react-native-picker-f1638a4.tgz",
     "@types/events": "3.0.3",
     "events": "3.3.0",
     "react": "19.1.4",
     "react-native": "0.81.6",
     "react-native-macos": "0.81.7",
+    "react-native-nswindow": "^0.0.4",
     "react-native-webrtc": "file:../../packages/react-native-webrtc"
   },
   "devDependencies": {

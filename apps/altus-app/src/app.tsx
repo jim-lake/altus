@@ -8,6 +8,7 @@ import LoginScreen from '@/login_screen';
 import ConsoleStore from '@/stores/console_store';
 import GameStore from '@/stores/game_store';
 import ProductStore from '@/stores/product_store';
+import SettingsStore from '@/stores/settings_store';
 import UserStore, { useIsLoggedIn, useIsReady } from '@/stores/user_store';
 import { herdOnce } from '@/tools/herd';
 
@@ -30,6 +31,7 @@ const styles = StyleSheet.create({
 });
 
 const _startup = herdOnce(async () => {
+  await SettingsStore.init();
   await UserStore.init();
   ConsoleStore.init();
   GameStore.init();
