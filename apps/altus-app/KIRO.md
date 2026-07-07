@@ -130,17 +130,21 @@ objectWrap: 'collapse';
 
 ## Scripts
 
-| Command                              | Purpose                         |
-| ------------------------------------ | ------------------------------- |
-| `npm run lint`                       | ESLint with auto-fix            |
-| `npm run pretty`                     | Prettier format                 |
-| `npm run ts:check`                   | TypeScript type check (no emit) |
-| `npm test`                           | All unit tests via `tsx --test` |
-| `npm run test:unit:single -- <file>` | Run a single test file          |
-| `npm run mac`                        | Run on macOS                    |
+| Command                              | Purpose                                           |
+| ------------------------------------ | ------------------------------------------------- |
+| `npm run lint`                       | ESLint with auto-fix                              |
+| `npm run pretty`                     | Prettier format                                   |
+| `npm run ts:check`                   | TypeScript type check (no emit)                   |
+| `npm test`                           | All unit tests (output to /tmp log, 900s timeout) |
+| `npm run test:unit:single -- <file>` | Run a single test file                            |
+| `npm run mac`                        | Run on macOS                                      |
 
 ## Testing
 
 - Runner: Node's built-in test runner via `npx tsx --test tests/unit/*.test.ts`
 - Test files: `tests/unit/<name>.test.ts`
 - Relaxed lint rules in test files (any/non-null-assertion allowed)
+- `npm test` redirects all output to a timestamped log file (`/tmp/altus-test-<epoch>.log`) with a 900s timeout. It prints the log path on success or failure so you can always inspect the full output without re-running.
+- `npm run test:unit:single -- <file>` runs a single test file directly to stdout (no log redirect, no timeout).
+- `npm test` redirects all output to a timestamped log file (`/tmp/altus-test-<epoch>.log`) with a 300s timeout. It prints the log path on success or failure so you can always inspect the full output without re-running.
+- `npm run test:unit:single -- <file>` runs a single test file directly to stdout (no log redirect, no timeout).

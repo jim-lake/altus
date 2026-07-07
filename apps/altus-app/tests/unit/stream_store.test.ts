@@ -268,8 +268,83 @@ interface StreamStoreModule {
   stop: () => Promise<void>;
 }
 
+interface WebrtcInputHandlerModule {
+  init: () => void;
+  stop: () => void;
+  isActive: () => boolean;
+  addListener: (event: string, callback: () => void) => () => void;
+}
+
+interface InputProcessorModule {
+  init: () => void;
+  stop: () => void;
+}
+
+// Shim react-native-nsevent for Node.js test environment
+let g_keyboardCallback: ((...args: any[]) => void) | null = null;
+let g_captureActive = false;
+
+const nseventPath = require.resolve('react-native-nsevent');
+require.cache[nseventPath] = {
+  id: nseventPath,
+  filename: nseventPath,
+  loaded: true,
+  exports: {
+    __esModule: true,
+    default: {
+      registerKeyboardEventCallback: (
+        cb: ((...args: any[]) => void) | null
+      ) => {
+        g_keyboardCallback = cb;
+      },
+      registerMouseButtonEventCallback: () => {},
+      registerScrollEventCallback: () => {},
+      registerMouseMoveEventCallback: () => {},
+      startCapture: () => {
+        g_captureActive = true;
+      },
+      stopCapture: () => {
+        g_captureActive = false;
+      },
+      isCaptureActive: () => g_captureActive,
+      toggleKeyboardEvents: () => {},
+      toggleMouseButtonEvents: () => {},
+      toggleScrollEvents: () => {},
+      toggleMouseMoveEvents: () => {},
+      _getMouseMoveDeltaAndReset: () => {},
+      getMouseMoveDeltaAndReset: () => {},
+      onKeyboardEvent: { subscribe: () => ({ unsubscribe: () => {} }) },
+      onMouseButton: { subscribe: () => ({ unsubscribe: () => {} }) },
+      onScrollEvent: { subscribe: () => ({ unsubscribe: () => {} }) },
+      onMouseMoveEvent: { subscribe: () => ({ unsubscribe: () => {} }) },
+    },
+  },
+} as NodeModule;
+
+function simulateKeyDown(keyCode: number, shift = false) {
+  if (g_keyboardCallback) {
+    g_keyboardCallback(keyCode, true, shift, false, false, false, false, false);
+  }
+}
+function simulateKeyUp(keyCode: number, shift = false) {
+  if (g_keyboardCallback) {
+    g_keyboardCallback(
+      keyCode,
+      false,
+      shift,
+      false,
+      false,
+      false,
+      false,
+      false
+    );
+  }
+}
+
 let UserStore: UserStoreModule;
 let StreamStore: StreamStoreModule;
+let WebrtcInputHandler: WebrtcInputHandlerModule;
+let InputProcessor: InputProcessorModule;
 
 before(async () => {
   const userMod = await import('../../src/stores/user_store.ts');
@@ -285,9 +360,18 @@ before(async () => {
 
   const streamMod = await import('../../src/stores/stream_store.ts');
   StreamStore = streamMod.default;
+
+  const inputHandlerMod = await import('../../src/lib/webrtc_input_handler.ts');
+  WebrtcInputHandler = inputHandlerMod.default;
+
+  const inputProcessorMod =
+    await import('../../src/lib/gamepad/input_processor.ts');
+  InputProcessor = inputProcessorMod.default;
 });
 
 after(async () => {
+  InputProcessor?.stop();
+  WebrtcInputHandler?.stop();
   await StreamStore?.stop();
 });
 
@@ -296,6 +380,10 @@ const FORTNITE_TITLE_ID = 'FORTNITE';
 
 void describe('stream_store: startPlay negotiation', () => {
   void it('starts a session, provisions, SDP exchanges, ICE connects, and gets video track', async () => {
+    // Init the full input pipeline BEFORE starting play
+    WebrtcInputHandler.init();
+    InputProcessor.init();
+
     const playPromise = StreamStore.startPlay(FORTNITE_TITLE_ID);
 
     // Poll until connected or fail (120s max)
@@ -326,6 +414,34 @@ void describe('stream_store: startPlay negotiation', () => {
     );
     assert.ok(streamUrl, 'streamUrl should be set (video track received)');
 
+    // Wait for input pipeline to activate (control_ready fires after data channel handshake)
+    for (let i = 0; i < 20; i++) {
+      if (WebrtcInputHandler.isActive()) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    // Verify input pipeline activated via control_ready
+    assert.ok(
+      WebrtcInputHandler.isActive(),
+      'webrtc_input_handler should be active after connection'
+    );
+    assert.ok(
+      g_captureActive,
+      'NSEvent capture should be active (input_processor listening)'
+    );
+
+    // Simulate key presses through the full pipeline
+    // keyCode 49 = space = buttonA
+    simulateKeyDown(49);
+    // Give a tick for the frame to be sent
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    simulateKeyUp(49);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    console.log('input pipeline: key simulation sent through full pipeline');
+
     // Wait up to 10s for video RTP packets to arrive
     for (let i = 0; i < 20; i++) {
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -342,7 +458,18 @@ void describe('stream_store: startPlay negotiation', () => {
 
     // Unsubscribe RTP listeners before closing so werift can exit cleanly
     cleanupRtp();
+
+    // Stop verifies control_stop propagates correctly
     await StreamStore.stop();
+    assert.ok(
+      !WebrtcInputHandler.isActive(),
+      'webrtc_input_handler should be inactive after stop'
+    );
+    assert.ok(
+      !g_captureActive,
+      'NSEvent capture should be stopped after control_stop'
+    );
+
     await playPromise.catch(() => {});
   });
 });

@@ -153,8 +153,15 @@ export async function startPlay(titleId: string): Promise<void> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     errorLog('stream_store: startPlay failed', msg);
+    if (g_pc) {
+      g_pc.close();
+      g_pc = null;
+    }
+    g_inputChannel = null;
+    g_controlChannel = null;
     g_phase = 'failed';
     g_error = msg;
+    g_eventEmitter.emit('control_stop');
     _emit();
   }
 }
@@ -171,10 +178,13 @@ export async function stop(): Promise<void> {
     g_keepaliveTimer = null;
   }
   g_pc = null;
+  g_inputChannel = null;
+  g_controlChannel = null;
   g_phase = 'idle';
   g_sessionId = null;
   g_streamUrl = null;
   g_error = null;
+  g_eventEmitter.emit('control_stop');
   _emit();
 
   if (pc) {
@@ -255,7 +265,7 @@ async function _pollUntilProvisioned(
   let connected = false;
   for (;;) {
     if (g_stopped) {
-      return;
+      throw new Error('stopped');
     }
     await _sleep(1000);
     const result = await get<SessionStateResponse>({
@@ -281,8 +291,8 @@ async function _pollUntilProvisioned(
     if (state === 'Provisioned') {
       return;
     }
-    if (state === 'Failed') {
-      const msg = result.body.errorDetails?.message ?? 'unknown';
+    if (state === 'Failed' || state === 'Expired') {
+      const msg = result.body.errorDetails?.message ?? state;
       errorLog('stream_store: Session failed', result.body.errorDetails);
       throw new Error(`session_failed: ${msg}`);
     }
@@ -510,7 +520,7 @@ async function _pollRemoteIceCandidates(
   const MAX_POLLS = 30;
   for (let i = 0; i < MAX_POLLS; i++) {
     if (g_stopped) {
-      return;
+      throw new Error('stopped');
     }
     await _sleep(1000);
     const result = await get<{ exchangeResponse: string }>({

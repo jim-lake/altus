@@ -1778,6 +1778,34 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
+  - react-native-nsevent (0.0.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - react-native-nswindow (0.0.4):
     - boost
     - DoubleConversion
@@ -2388,6 +2416,7 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native-macos/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native-macos/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native-macos/ReactCommon/react/nativemodule/microtasks`)
+  - react-native-nsevent (from `../node_modules/react-native-nsevent`)
   - react-native-nswindow (from `../node_modules/react-native-nswindow`)
   - react-native-webrtc (from `../node_modules/react-native-webrtc`)
   - React-NativeModulesApple (from `../node_modules/react-native-macos/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2513,6 +2542,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-macos/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native-macos/ReactCommon/react/nativemodule/microtasks"
+  react-native-nsevent:
+    :path: "../node_modules/react-native-nsevent"
   react-native-nswindow:
     :path: "../node_modules/react-native-nswindow"
   react-native-webrtc:
@@ -2625,6 +2656,7 @@ SPEC CHECKSUMS:
   React-logger: 079107325dda1ad527b324f4f3cf61e4f6ce4600
   React-Mapbuffer: 59df6730a578de280cd8675cdf5440b91c243bdf
   React-microtasksnativemodule: 255f0b29a74d001ecd202e4d5f7f170a009b3987
+  react-native-nsevent: 6f08f18d3617ec796009ee4369707fdacc7bfbda
   react-native-nswindow: 449b5ad218e6cd9a53285209f9ca8c9353b442a0
   react-native-webrtc: e8f0ce746353adc2744a2b933645e1aeb41eaa74
   React-NativeModulesApple: c1e8f5e34efed354e5a066ef47c45a4ca5dddbb4

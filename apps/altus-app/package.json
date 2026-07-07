@@ -13,7 +13,7 @@
     "lint": "eslint . --fix",
     "pretty": "prettier -u --write *",
     "start": "react-native start",
-    "test": "npx tsx --test tests/unit/*.test.ts",
+    "test": "LOGFILE=/tmp/altus-test-$(date +%s).log; timeout 900 npx tsx --test tests/unit/*.test.ts > $LOGFILE 2>&1 && echo \"TESTS PASSED — $LOGFILE\" || (echo \"TESTS FAILED — $LOGFILE\"; exit 1)",
     "test:unit:single": "npx tsx --test",
     "test:bundle": "react-native bundle --platform macos --entry-file index.js --bundle-output /tmp/altus-bundle.js --dev false",
     "ts:check": "tsc --noEmit"
@@ -23,9 +23,13 @@
     "@react-native-picker/picker": "https://github.com/jim-lake/react-native-picker/releases/download/f1638a4/react-native-picker-f1638a4.tgz",
     "@types/events": "3.0.3",
     "events": "3.3.0",
+    "macos": "^0.0.1",
+    "package-lock.json": "^1.0.0",
+    "package.json": "^2.0.1",
     "react": "19.1.4",
     "react-native": "0.81.6",
     "react-native-macos": "0.81.7",
+    "react-native-nsevent": "0.0.1",
     "react-native-nswindow": "^0.0.4",
     "react-native-webrtc": "file:../../packages/react-native-webrtc"
   },
