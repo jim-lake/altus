@@ -278,6 +278,8 @@ interface WebrtcInputHandlerModule {
 interface InputProcessorModule {
   init: () => void;
   stop: () => void;
+  startCapture: () => void;
+  stopCapture: () => void;
 }
 
 // Shim react-native-nsevent for Node.js test environment
@@ -428,8 +430,19 @@ void describe('stream_store: startPlay negotiation', () => {
       'webrtc_input_handler should be active after connection'
     );
     assert.ok(
+      g_keyboardCallback !== null,
+      'keyboard callback should be registered (input_processor listening)'
+    );
+    assert.ok(
+      !g_captureActive,
+      'NSEvent capture should NOT be active until user enables it'
+    );
+
+    // Simulate user enabling mouse capture
+    InputProcessor.startCapture();
+    assert.ok(
       g_captureActive,
-      'NSEvent capture should be active (input_processor listening)'
+      'NSEvent capture should be active after startCapture'
     );
 
     // Simulate key presses through the full pipeline
@@ -439,6 +452,15 @@ void describe('stream_store: startPlay negotiation', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     simulateKeyUp(49);
     await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Simulate F9 to release capture
+    simulateKeyDown(101); // KEY_CODE_F9
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.ok(!g_captureActive, 'NSEvent capture should stop after F9');
+
+    // Re-enable for the rest of the test
+    InputProcessor.startCapture();
+    assert.ok(g_captureActive, 'NSEvent capture re-enabled');
 
     console.log('input pipeline: key simulation sent through full pipeline');
 

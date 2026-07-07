@@ -7,6 +7,7 @@ import HomeScreen from '@/home_screen';
 import LoginScreen from '@/login_screen';
 import ConsoleStore from '@/stores/console_store';
 import GameStore from '@/stores/game_store';
+import MouseStore from '@/stores/mouse_store';
 import ProductStore from '@/stores/product_store';
 import SettingsStore from '@/stores/settings_store';
 import UserStore, { useIsLoggedIn, useIsReady } from '@/stores/user_store';
@@ -33,6 +34,7 @@ const styles = StyleSheet.create({
 const _startup = herdOnce(async () => {
   await SettingsStore.init();
   await UserStore.init();
+  MouseStore.init();
   ConsoleStore.init();
   GameStore.init();
   await ProductStore.init();

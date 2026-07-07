@@ -6,6 +6,7 @@ import TextButton from '@/components/buttons/text_button';
 import { StyleSheet, useStyles } from '@/components/theme_style';
 import { init as initInputProcessor } from '@/lib/gamepad/input_processor';
 import { init as initWebrtcInput } from '@/lib/webrtc_input_handler';
+import { startCapture, stopCapture, useCaptured } from '@/stores/mouse_store';
 import StreamStore, {
   useError,
   usePhase,
@@ -18,6 +19,7 @@ import type { ViewStyle } from 'react-native';
 const styles = StyleSheet.create({
   gameScreen: { backgroundColor: 'black', flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', padding: 8 },
+  headerLeft: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   placeholder: { backgroundColor: '#112244', flex: 1 },
   status: { color: '#aaa', fontSize: 11 },
   video: { flex: 1 },
@@ -40,6 +42,7 @@ export default function GameScreen({
   const phase = usePhase();
   const streamUrl = useStreamUrl();
   const error = useError();
+  const captured = useCaptured();
 
   useEffect(() => {
     initWebrtcInput();
@@ -64,13 +67,34 @@ export default function GameScreen({
     ]);
   });
 
+  const handleMouseToggle = useLatestCallback(() => {
+    if (captured) {
+      stopCapture();
+    } else {
+      startCapture();
+    }
+  });
+
   return (
     <View style={[s.gameScreen, style]}>
       <View style={s.header}>
-        <Text style={s.status}>
-          {`${title} | ${phase}${streamUrl ? ' | stream' : ''}${error ? ` | ${error}` : ''}`}
-        </Text>
-        <TextButton text='Disconnect' type='ghost' onPress={handleDisconnect} />
+        <View style={s.headerLeft}>
+          <Text style={s.status}>
+            {`${title} | ${phase}${streamUrl ? ' | stream' : ''}${error ? ` | ${error}` : ''}`}
+          </Text>
+        </View>
+        <View style={s.headerLeft}>
+          <TextButton
+            text={captured ? 'Release Mouse (F9)' : 'Enable Mouse'}
+            type='ghost'
+            onPress={handleMouseToggle}
+          />
+          <TextButton
+            text='Disconnect'
+            type='ghost'
+            onPress={handleDisconnect}
+          />
+        </View>
       </View>
       {streamUrl ? (
         <RTCView

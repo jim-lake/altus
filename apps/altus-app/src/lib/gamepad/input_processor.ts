@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 import NSEvent from 'react-native-nsevent';
 
 import {
@@ -33,6 +35,8 @@ const KEY_CODE_B = 11;
 const KEY_CODE_SPACE = 49;
 const KEY_CODE_Q = 12;
 const KEY_CODE_E = 14;
+const KEY_CODE_ESCAPE = 53;
+const KEY_CODE_F9 = 101;
 
 const DEFAULT_KEY_MAP: Record<number, string> = {
   [KEY_CODE_W]: 'leftStickUp',
@@ -51,9 +55,11 @@ const DEFAULT_KEY_MAP: Record<number, string> = {
   [KEY_CODE_E]: 'rightBumper',
 };
 
+const g_eventEmitter = new EventEmitter();
 const g_pressed = new Set<string>();
 let g_initialized = false;
 let g_listening = false;
+let g_captured = false;
 let g_unsubReady: (() => void) | null = null;
 let g_unsubStop: (() => void) | null = null;
 
@@ -68,6 +74,9 @@ export function init(): void {
 
 export function stop(): void {
   _stopListening();
+  g_captured = false;
+  NSEvent.stopCapture();
+  g_eventEmitter.emit('stop_capture');
   if (g_unsubReady) {
     g_unsubReady();
     g_unsubReady = null;
@@ -79,6 +88,33 @@ export function stop(): void {
   g_initialized = false;
 }
 
+export function addListener(
+  event: 'start_capture' | 'stop_capture',
+  callback: () => void
+): () => void {
+  g_eventEmitter.on(event, callback);
+  return () => {
+    g_eventEmitter.removeListener(event, callback);
+  };
+}
+
+export function startCapture(): void {
+  if (g_captured || !g_listening) {
+    return;
+  }
+  g_captured = true;
+  NSEvent.startCapture();
+  log('input_processor: mouse capture started');
+  g_eventEmitter.emit('start_capture');
+}
+
+export function stopCapture(): void {
+  g_captured = false;
+  NSEvent.stopCapture();
+  log('input_processor: mouse capture stopped');
+  g_eventEmitter.emit('stop_capture');
+}
+
 function _onReady(): void {
   log('input_processor: ready, starting input capture');
   announceGamepad(0, true);
@@ -88,6 +124,9 @@ function _onReady(): void {
 function _onStop(): void {
   log('input_processor: stop, stopping input capture');
   _stopListening();
+  g_captured = false;
+  NSEvent.stopCapture();
+  g_eventEmitter.emit('stop_capture');
   g_pressed.clear();
 }
 
@@ -97,7 +136,6 @@ function _startListening(): void {
   }
   g_listening = true;
   NSEvent.registerKeyboardEventCallback(_onKeyboardEvent);
-  NSEvent.startCapture();
 }
 
 function _stopListening(): void {
@@ -105,7 +143,6 @@ function _stopListening(): void {
     return;
   }
   g_listening = false;
-  NSEvent.stopCapture();
   NSEvent.registerKeyboardEventCallback(null);
 }
 
@@ -127,6 +164,14 @@ function _onKeyboardEvent(
 }
 
 function _onKeyDown(keyCode: number, shift: boolean): void {
+  // F9 or Escape releases mouse capture
+  if (keyCode === KEY_CODE_F9 || keyCode === KEY_CODE_ESCAPE) {
+    if (g_captured) {
+      stopCapture();
+    }
+    return;
+  }
+
   traceLog('input_processor: keyDown code:', keyCode, 'shift:', shift);
 
   // Shift acts as left trigger
@@ -150,6 +195,11 @@ function _onKeyDown(keyCode: number, shift: boolean): void {
 }
 
 function _onKeyUp(keyCode: number, shift: boolean): void {
+  // Ignore release of capture-toggle keys
+  if (keyCode === KEY_CODE_F9 || keyCode === KEY_CODE_ESCAPE) {
+    return;
+  }
+
   traceLog('input_processor: keyUp code:', keyCode, 'shift:', shift);
 
   // Update trigger state on any keyUp
@@ -241,4 +291,4 @@ function _sendFrame(): void {
   );
 }
 
-export default { init, stop };
+export default { init, stop, addListener, startCapture, stopCapture };
